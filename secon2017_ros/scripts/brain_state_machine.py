@@ -13,7 +13,7 @@ import rospy
 
 from dynamic_reconfigure.server import Server
 from secon2017_ros.cfg import BrainStateMachinConfig as BSMCfg
-
+from secon2017_ros.msg import BrainState
 
 class BrainStateMachine():
 
@@ -46,6 +46,11 @@ class BrainStateMachine():
 
         # Start dynamic reconfigure server
         self.dynamic_server = Server(BSMCfg, self.reconfigure_callback)
+
+        # Set subscribers
+        rospy.Subscriber("brain_state", BrainState, self.brain_state_callback)
+
+        # Set publishers
 
         # Start state machine loop
         self.run()
@@ -85,7 +90,7 @@ class BrainStateMachine():
         # Reassigns and resends parameters to Arduino's
         return
 
-    def robot_state_callback(self, robot_state):
+    def brain_state_callback(self, brain_state):
         # Updates info dictionary of robot state information
         # Trips a flag for new info
         return

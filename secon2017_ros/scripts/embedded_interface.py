@@ -9,6 +9,8 @@ Sensor data is also forwarded up from the Arduino to the State Machine.
 '''
 
 import rospy
+from secon2017_ros.msg import BrainState
+
 import serial
 import regex as re
 
@@ -18,7 +20,7 @@ class EmbeddedInterface():
     def __init__():
         # Initialize node
         rospy.init_node("embedded_interface")
-        self.pinky_connected = True
+        self.pinky_connected = False # Initialize to True when Pinky present
         # regex strings to extract data from strings
         self.brain_regex = "B:sw:*[]odom*[]wvel:*[]seq:*[]rot:*[]"
         self.pinky_regex = "P:"
@@ -34,6 +36,8 @@ class EmbeddedInterface():
         self.pinky_port = rospy.get_param("pinky_serial_port", "/dev/arduinos/pinky")
         # Set callbacks
 
+        # Set publishers
+        self.brain_state_pub = rospy.Publisher("brain_state", BrainState)
         # Open serial ports
         self.Brain = serial.Serial(self.brain_port, self.brain_baud, timeout=0.5)
         self.Pinky = serial.Serial(self.pinky_port, self.pinky_baud, timeout=0.5)
