@@ -6,6 +6,13 @@
  * 
  * Authors: Jonathan Watts, Brett Farris, Lucas Cagle
  */
+
+#include <Wire.h>
+// External libraries
+#include <Adafruit_MotorShield.h>
+#include "utility/Adafruit_PWMServoDriver.h"
+#include <PID_v1.h>
+
 // Pin definitions
 // NOTE: pins 0 and 1 reserved for USB TX/RX
 // Encoder pins
@@ -35,6 +42,8 @@ const int WHEEL_RAD = 30; // in mm! not m!
 const int ENC_PER_REV = 810; // encoder pulses per motor output revolution
 // Variable initialization
 // NOTE: use volatile for non-constant data lest the compiler hardcode it!
+
+// Motor variables
 // time for encoder velocity calculation
 volatile int prev_time = 0;
 volatile int cur_time = 0;
@@ -43,30 +52,69 @@ volatile int fl_enc = 0;
 volatile int fr_enc = 0;
 volatile int bl_enc = 0;
 volatile int br_enc = 0;
-// wheel velocities ( integers in mm/sec! not m/s! )
-volatile int fl_vel = 0;  // integers in mm/sec! not m/s! 
-volatile int fr_vel = 0;  // integers in mm/sec! not m/s! 
-volatile int bl_vel = 0;  // integers in mm/sec! not m/s! 
-volatile int br_vel = 0;  // integers in mm/sec! not m/s! 
-// commanded wheel velocities ( integers in mm/s! not m/s! )
-volatile int cmd_fl_vel = 0;  // integers in mm/sec! not m/s! 
-volatile int cmd_fr_vel = 0;  // integers in mm/sec! not m/s! 
-volatile int cmd_bl_vel = 0;  // integers in mm/sec! not m/s! 
-volatile int cmd_br_vel = 0;  // integers in mm/sec! not m/s! 
+// wheel velocities ( mm/s! not m/s! )
+volatile double fl_vel = 0;  // mm/s! not m/s! 
+volatile double fr_vel = 0;  // mm/s! not m/s! 
+volatile double bl_vel = 0;  // mm/s! not m/s! 
+volatile double br_vel = 0;  // mm/s! not m/s! 
+// commanded wheel velocities ( mm/s! not m/s! )
+volatile double cmd_fl_vel = 0;  // mm/s! not m/s! 
+volatile double cmd_fr_vel = 0;  // mm/s! not m/s! 
+volatile double cmd_bl_vel = 0;  // mm/s! not m/s! 
+volatile double cmd_br_vel = 0;  // mm/s! not m/s!
+// PWM command
+volatile double fl_pwm = 0;
+volatile double fr_pwm = 0;
+volatile double bl_pwm = 0;
+volatile double br_pwm = 0;
+
+// Stage variables
+// Case expression for sampling
+int target_an_pin = 0;
+// Sampling assignment
+int target_value = 0;
 // decoded sequence
 volatile char seq[] = "00000";
 // commanded rotation sequence
 volatile char cmd_rot[] = "00000";
 // resultant rotation sequence
 volatile char res_rot[] = "00000";
+
 // Command variables
 int STG_trigger = 0b00;
+
 // Parameter variables
 // These are parameters that can be changed at runtime via ROS
-// Case expression for sampling
-target_an_pin = 0;
-// Sampling assignment
-target_value = 0;
+// Front Left wheel
+volatile double fl_Kp = 0; // Proportional gain
+volatile double fl_Ki = 0; // Integral gain
+volatile double fl_Kd = 0; // Derivative gain
+// Front Right wheel
+volatile double fr_Kp = 0; // Proportional gain
+volatile double fr_Ki = 0; // Integral gain
+volatile double fr_Kd = 0; // Derivative gain
+// Back Left wheel
+volatile double bl_Kp = 0; // Proportional gain
+volatile double bl_Ki = 0; // Integral gain
+volatile double bl_Kd = 0; // Derivative gain
+// Back Right wheel
+volatile double br_Kp = 0; // Proportional gain
+volatile double br_Ki = 0; // Integral gain
+volatile double br_Kd = 0; // Derivative gain
+
+
+// Motor shield
+Adafruit_MotorShield AFMS = Adafruit_MotorShield();
+Adafruit_DCMotor *FL_mot = AFMS.getMotor(1);
+Adafruit_DCMotor *FR_mot = AFMS.getMotor(2);
+Adafruit_DCMotor *BL_mot = AFMS.getMotor(3);
+Adafruit_DCMotor *BR_mot = AFMS.getMotor(4);
+
+// PID's
+PID FL_PID(&fl_vel, &fl_pwm, &cmd_fl_vel, fl_Kp, fl_Ki, fl_Kd, DIRECT);
+PID FL_PID(&fl_vel, &fl_pwm, &cmd_fl_vel, fl_Kp, fl_Ki, fl_Kd, DIRECT);
+PID FL_PID(&fl_vel, &fl_pwm, &cmd_fl_vel, fl_Kp, fl_Ki, fl_Kd, DIRECT);
+PID FL_PID(&fl_vel, &fl_pwm, &cmd_fl_vel, fl_Kp, fl_Ki, fl_Kd, DIRECT);
 
 void setup() {
 
@@ -81,6 +129,28 @@ void setup() {
   pinMode(ADC_BL, INPUT);
   pinMode(ADC_BR, INPUT);
   pinMode(ADC_TR, INPUT);
+
+  // Start motor shield
+  AFMS.begin();
+  // Initialize motors to zero movement
+  FL_mot->setSpeed(0);
+  FR_mot->setSpeed(0);
+  BL_mot->setSpeed(0);
+  BR_mot->setSpeed(0);
+  FL_mot->run(RELEASE);
+  FR_mot->run(RELEASE);
+  BL_mot->run(RELEASE);
+  BR_mot->run(RELEASE);
+  // PID range set
+  FL_PID.SetOutputLimits(-255,255);
+  FR_PID.SetOutputLimits(-255,255);
+  BL_PID.SetOutputLimits(-255,255);
+  BR_PID.SetOutputLimits(-255,255);
+  // PID start
+  FL_PID.SetMode(AUTOMATIC);
+  FR_PID.SetMode(AUTOMATIC);
+  BL_PID.SetMode(AUTOMATIC);
+  BR_PID.SetMode(AUTOMATIC);
 }
 // Handles Front Left motor interrupt
 void FL_A(){
@@ -179,6 +249,39 @@ void receive_str(){
 // updates motor PID's and sends velocity commands
 void cmd_motors(){
   update_motor_vel();
+  FL_PID.Compute();
+  FR_PID.Compute();
+  BL_PID.Compute();
+  BR_PID.Compute();
+  // Front Left motor command
+  FL_mot->setSpeed(abs(fl_pwm));
+  if (fl_pwm < 0){
+    FL_mot->run(REVERSE);
+  }else{
+    FL_mot->run(FORWARD);
+  }
+  // Front Right motor command
+  FR_mot->setSpeed(abs(fr_pwm));
+  if (fr_pwm < 0){
+    FR_mot->run(REVERSE);
+  }else{
+    FL_mot->run(FORWARD);
+  }
+  // Back Left motor command
+  BL_mot->setSpeed(abs(bl_pwm));
+  if (bl_pwm < 0){
+    BL_mot->run(REVERSE);
+  }else{
+    BL_mot->run(FORWARD);
+  }
+  // Back Right motor command
+  BR_mot->setSpeed(abs(br_pwm));
+  if (br_pwm < 0){
+    BR_mot->run(REVERSE);
+  }else{
+    BR_mot->run(FORWARD);
+  }
+  
 }
 
 // reads encoder values and updates motor velocity ( in mm/s! )
