@@ -10,7 +10,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   geometry_msgs
   nav_msgs
-	dynamic_reconfigure
+  dynamic_reconfigure
   message_generation
 )
 
@@ -51,6 +51,8 @@ find_package(catkin REQUIRED COMPONENTS
 add_message_files(
  FILES
  BrainState.msg
+ BrainCommand.msg
+ BrainParameters.msg
 )
 
 ## Generate services in the 'srv' folder
