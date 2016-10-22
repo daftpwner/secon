@@ -85,13 +85,13 @@ void setup() {
 // Handles Front Left motor interrupt
 void FL_A(){
   cli();  //stop interrupts during routine
-  static int enc = digitalRead(FL_ENC_A) & digitalRead(FL_ENC_B);
+  static int enc = digitalRead(FL_ENC_A) ^ digitalRead(FL_ENC_B);
   switch(enc){
-  case (0b0):
+  case (0b1):
     // CW
     fl_enc ++;
     break;
-  case (0b1):
+  case (0b0):
     // CCW
     fl_enc --;
     break;
@@ -100,13 +100,13 @@ void FL_A(){
 // Handles Front Right motor interrupt
 void FR_A(){
   cli();  //stop interrupts during routine
-  static int enc = digitalRead(FR_ENC_A) & digitalRead(FR_ENC_B);
+  static int enc = digitalRead(FR_ENC_A) ^ digitalRead(FR_ENC_B);
   switch(enc){
-  case (0b0):
+  case (0b1):
     // CW
     fr_enc ++;
     break;
-  case (0b1):
+  case (0b0):
     // CCW
     fr_enc --;
     break;
@@ -115,13 +115,13 @@ void FR_A(){
 // Handles Back Left motor interrupt
 void BL_A(){
   cli();  //stop interrupts during routine
-  static int enc = digitalRead(BL_ENC_A) & digitalRead(BL_ENC_B);
+  static int enc = digitalRead(BL_ENC_A) ^ digitalRead(BL_ENC_B);
   switch(enc){
-  case (0b0):
+  case (0b1):
     // CW
     bl_enc ++;
     break;
-  case (0b1):
+  case (0b0):
     // CCW
     bl_enc --;
     break;
@@ -130,13 +130,13 @@ void BL_A(){
 // Handles Back Right motor interrupt
 void BR_A(){
   cli();  //stop interrupts during routine
-  static int enc = digitalRead(BR_ENC_A) & digitalRead(BR_ENC_B);
+  static int enc = digitalRead(BR_ENC_A) ^ digitalRead(BR_ENC_B);
   switch(enc){
-  case (0b0):
+  case (0b1):
     // CW
     br_enc ++;
     break;
-  case (0b1):
+  case (0b0):
     // CCW
     br_enc --;
     break;
