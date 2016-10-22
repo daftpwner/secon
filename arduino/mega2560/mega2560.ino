@@ -10,7 +10,7 @@
 #include <Wire.h>
 // External libraries
 #include <Adafruit_MotorShield.h>
-#include "utility/Adafruit_PWMServoDriver.h"
+//#include "utility/Adafruit_PWMServoDriver.h"
 #include <PID_v1.h>
 
 // Pin definitions
@@ -26,14 +26,14 @@
 #define BR_ENC_B 12
 
 // PWM pins
-const int STG1_PWM 44;
+const int STG1_PWM = 44;
 
 // Analog pins
-const int ADC_TOP A0;
-const int ADC_TL A1;
-const int ADC_BL A2;
-const int ADC_BR A3;
-const int ADC_TR A4;
+const int ADC_TOP = A0;
+const int ADC_TL = A1;
+const int ADC_BL = A2;
+const int ADC_BR = A3;
+const int ADC_TR = A4;
 
 // Hardware parameters
 // These are parameters endemic to the hardware and
@@ -53,20 +53,20 @@ volatile int fr_enc = 0;
 volatile int bl_enc = 0;
 volatile int br_enc = 0;
 // wheel velocities ( mm/s! not m/s! )
-volatile double fl_vel = 0;  // mm/s! not m/s! 
-volatile double fr_vel = 0;  // mm/s! not m/s! 
-volatile double bl_vel = 0;  // mm/s! not m/s! 
-volatile double br_vel = 0;  // mm/s! not m/s! 
+double fl_vel = 0;  // mm/s! not m/s! 
+double fr_vel = 0;  // mm/s! not m/s! 
+double bl_vel = 0;  // mm/s! not m/s! 
+double br_vel = 0;  // mm/s! not m/s! 
 // commanded wheel velocities ( mm/s! not m/s! )
-volatile double cmd_fl_vel = 0;  // mm/s! not m/s! 
-volatile double cmd_fr_vel = 0;  // mm/s! not m/s! 
-volatile double cmd_bl_vel = 0;  // mm/s! not m/s! 
-volatile double cmd_br_vel = 0;  // mm/s! not m/s!
+double cmd_fl_vel = 0;  // mm/s! not m/s! 
+double cmd_fr_vel = 0;  // mm/s! not m/s! 
+double cmd_bl_vel = 0;  // mm/s! not m/s! 
+double cmd_br_vel = 0;  // mm/s! not m/s!
 // PWM command
-volatile double fl_pwm = 0;
-volatile double fr_pwm = 0;
-volatile double bl_pwm = 0;
-volatile double br_pwm = 0;
+double fl_pwm = 0;
+double fr_pwm = 0;
+double bl_pwm = 0;
+double br_pwm = 0;
 
 // Stage variables
 // Case expression for sampling
@@ -86,21 +86,21 @@ int STG_trigger = 0b00;
 // Parameter variables
 // These are parameters that can be changed at runtime via ROS
 // Front Left wheel
-volatile double fl_Kp = 0; // Proportional gain
-volatile double fl_Ki = 0; // Integral gain
-volatile double fl_Kd = 0; // Derivative gain
+double fl_Kp = 1; // Proportional gain
+double fl_Ki = 0; // Integral gain
+double fl_Kd = 0; // Derivative gain
 // Front Right wheel
-volatile double fr_Kp = 0; // Proportional gain
-volatile double fr_Ki = 0; // Integral gain
-volatile double fr_Kd = 0; // Derivative gain
+double fr_Kp = 1; // Proportional gain
+double fr_Ki = 0; // Integral gain
+double fr_Kd = 0; // Derivative gain
 // Back Left wheel
-volatile double bl_Kp = 0; // Proportional gain
-volatile double bl_Ki = 0; // Integral gain
-volatile double bl_Kd = 0; // Derivative gain
+double bl_Kp = 1; // Proportional gain
+double bl_Ki = 0; // Integral gain
+double bl_Kd = 0; // Derivative gain
 // Back Right wheel
-volatile double br_Kp = 0; // Proportional gain
-volatile double br_Ki = 0; // Integral gain
-volatile double br_Kd = 0; // Derivative gain
+double br_Kp = 1; // Proportional gain
+double br_Ki = 0; // Integral gain
+double br_Kd = 0; // Derivative gain
 
 
 // Motor shield
@@ -112,9 +112,9 @@ Adafruit_DCMotor *BR_mot = AFMS.getMotor(4);
 
 // PID's
 PID FL_PID(&fl_vel, &fl_pwm, &cmd_fl_vel, fl_Kp, fl_Ki, fl_Kd, DIRECT);
-PID FL_PID(&fl_vel, &fl_pwm, &cmd_fl_vel, fl_Kp, fl_Ki, fl_Kd, DIRECT);
-PID FL_PID(&fl_vel, &fl_pwm, &cmd_fl_vel, fl_Kp, fl_Ki, fl_Kd, DIRECT);
-PID FL_PID(&fl_vel, &fl_pwm, &cmd_fl_vel, fl_Kp, fl_Ki, fl_Kd, DIRECT);
+PID FR_PID(&fr_vel, &fr_pwm, &cmd_fr_vel, fr_Kp, fr_Ki, fr_Kd, DIRECT);
+PID BL_PID(&bl_vel, &bl_pwm, &cmd_bl_vel, bl_Kp, bl_Ki, bl_Kd, DIRECT);
+PID BR_PID(&br_vel, &br_pwm, &cmd_br_vel, br_Kp, br_Ki, br_Kd, DIRECT);
 
 void setup() {
 
@@ -340,19 +340,19 @@ ISR(TIMER2_COMPA_vect){
   // sample the pin and add to data range
   switch(target_an_pin) { 
    case 1:
-      target_value = analogRead(ADC_TOP A0);
-      break  
+      target_value = analogRead(ADC_TOP);
+      break;
    case 2:
-      target_value = analogRead(ADC_TL A1);
+      target_value = analogRead(ADC_TL);
       break;
    case 3:
-      target_value = analogRead(ADC_BL A2);
+      target_value = analogRead(ADC_BL);
       break;     
    case 4:
-      target_value = analogRead(ADC_BR A3);
+      target_value = analogRead(ADC_BR);
       break;      
    case 5:
-      target_value = analogRead(ADC_TR A4);
+      target_value = analogRead(ADC_TR);
       break;
 }
 }
