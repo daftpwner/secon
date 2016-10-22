@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 '''
-This node handles serial communications with both Arduino devices of the robotic
+This node handles serial communications with both Arduino devices of the
 system.  Commands and parameter updates are forwarded from the
 Brain State Machine and passed onto the appropriate Arduino.
 
@@ -17,12 +17,16 @@ import regex as re
 
 class EmbeddedInterface():
 
-    def __init__():
+    def __init__(self):
         # Initialize node
         rospy.init_node("embedded_interface")
-        self.pinky_connected = False # Initialize to True when Pinky present
+        self.pinky_connected = False  # Initialize to True when Pinky present
         # regex strings to extract data from strings
-        self.brain_regex = "B:sw:*[]odom*[]wvel:*[]seq:*[]rot:*[]"
+        # [[01];]+ parses out arbitrary number of 1/0's
+        # [[+-]\d+.\d+;]+ should parse out an arbitrary number of floats
+        # with signs and delimited by ';'
+        self.brain_regex = \
+        	"B:sw:[[01];]+odom:[[+-]\d+.\d+;]+wvel:[[+-]\d+.\d+;]+seq:\d{5}rot:\d{5}"
         self.pinky_regex = "P:"
         # command string template
         # x,y,angular velocities; stage 1, 3 triggers
@@ -32,15 +36,19 @@ class EmbeddedInterface():
         # Wheel debug string
         self.debug_string = "W{w1vel},{w2vel},{w3vel},{w4vel}"
         # Set parameters
-        self.brain_port = rospy.get_param("brain_serial_port", "/dev/arduinos/brain")
-        self.pinky_port = rospy.get_param("pinky_serial_port", "/dev/arduinos/pinky")
+        self.brain_port = rospy.get_param(
+            "brain_serial_port", "/dev/arduinos/brain")
+        self.pinky_port = rospy.get_param(
+            "pinky_serial_port", "/dev/arduinos/pinky")
         # Set callbacks
 
         # Set publishers
         self.brain_state_pub = rospy.Publisher("brain_state", BrainState)
         # Open serial ports
-        self.Brain = serial.Serial(self.brain_port, self.brain_baud, timeout=0.5)
-        self.Pinky = serial.Serial(self.pinky_port, self.pinky_baud, timeout=0.5)
+        self.Brain = serial.Serial(
+            self.brain_port, self.brain_baud, timeout=0.5)
+        self.Pinky = serial.Serial(
+            self.pinky_port, self.pinky_baud, timeout=0.5)
 
         # Launch main listening loop
         self.run()

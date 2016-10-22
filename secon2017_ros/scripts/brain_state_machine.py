@@ -15,6 +15,7 @@ from dynamic_reconfigure.server import Server
 from secon2017_ros.cfg import BrainStateMachinConfig as BSMCfg
 from secon2017_ros.msg import BrainState
 
+
 class BrainStateMachine():
 
     def __init__(self):
@@ -25,22 +26,22 @@ class BrainStateMachine():
         self.current_state = 0
         # Lists all states of Brain
         self.states = \
-        [
-            "wait_for_start",
-            "start",
+            [
+                "wait_for_start",
+                "start",
 
-            "nav_to_STG1_wall",
-            "nav_to_STG1",
-            "align_to_STG1",
-            "perform_STG1",
+                "nav_to_STG1_wall",
+                "nav_to_STG1",
+                "align_to_STG1",
+                "perform_STG1",
 
-            "nav_to_STG3_wall",
-            "nav_to_STG3",
-            "align_to_STG3",
-            "perform_STG3",
+                "nav_to_STG3_wall",
+                "nav_to_STG3",
+                "align_to_STG3",
+                "perform_STG3",
 
-            "end"
-        ]
+                "end"
+            ]
 
         # Load parameter defaults here
 
