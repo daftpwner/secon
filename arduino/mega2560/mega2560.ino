@@ -26,14 +26,14 @@
 #define BR_ENC_B 12
 
 // PWM pins
-#define STG1_PWM = 44;
+#define STG1_PWM 44
 
 // Analog pins
-#define ADC_TOP A0;
-#define ADC_TL A1;
-#define ADC_BL A2;
-#define ADC_BR A3;
-#define ADC_TR A4;
+#define ADC_TOP A0
+#define ADC_TL A1
+#define ADC_BL A2
+#define ADC_BR A3
+#define ADC_TR A4
 
 // Hardware parameters
 // These are parameters endemic to the hardware and
@@ -81,6 +81,7 @@ volatile char cmd_rot[] = "00000";  // commanded rotation sequence
 volatile char res_rot[] = "00000";  // resultant rotation sequence
 
 // Command variables
+String cmd_str;
 int STG_trigger = 0b00;
 
 // Parameter variables
@@ -120,7 +121,10 @@ PID BL_PID(&bl_vel, &bl_pwm, &cmd_bl_vel, bl_Kp, bl_Ki, bl_Kd, DIRECT);
 PID BR_PID(&br_vel, &br_pwm, &cmd_br_vel, br_Kp, br_Ki, br_Kd, DIRECT);
 
 void setup() {
-
+    
+    // USB port setup
+    Serial.begin(9600);
+    
     // initilize pins
     attachInterrupt(0,FL_A,CHANGE);
     attachInterrupt(1,FR_A,CHANGE);
@@ -157,6 +161,7 @@ void setup() {
     FR_PID.SetMode(AUTOMATIC);
     BL_PID.SetMode(AUTOMATIC);
     BR_PID.SetMode(AUTOMATIC);
+
 }
 
 // Handles Front Left motor interrupt
@@ -263,7 +268,11 @@ void loop() {
 // receive and process command/parameter-reassignment strings
 // updates relevant command/parameter variables
 void receive_str(){
-    
+
+  if (Serial.available() > 0) {
+    cmd_str = Serial.readStringUntil('\n');
+  }
+  
 }
 
 // updates motor PID's and sends velocity commands
