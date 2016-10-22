@@ -19,14 +19,14 @@
 #define BR_ENC_B 12
 
 // PWM pins
-#define STG1_PWM 44;
+const int STG1_PWM 44;
 
 // Analog pins
-#define ADC_TOP A0;
-#define ADC_TL A1;
-#define ADC_BL A2;
-#define ADC_BR A3;
-#define ADC_TR A4;
+const int ADC_TOP A0;
+const int ADC_TL A1;
+const int ADC_BL A2;
+const int ADC_BR A3;
+const int ADC_TR A4;
 
 // Hardware parameters
 // These are parameters endemic to the hardware and
@@ -63,7 +63,10 @@ volatile char res_rot[] = "00000";
 int STG_trigger = 0b00;
 // Parameter variables
 // These are parameters that can be changed at runtime via ROS
-
+// Case expression for sampling
+target_an_pin = 0;
+// Sampling assignment
+target_value = 0;
 
 void setup() {
 
@@ -72,6 +75,12 @@ void setup() {
   attachInterrupt(1,FR_A,CHANGE);
   attachInterrupt(2,BL_A,CHANGE);
   attachInterrupt(3,BR_A,CHANGE);
+  pinMode(STG1_PWM, OUTPUT);
+  pinMode(ADC_TOP, INPUT);
+  pinMode(ADC_TL, INPUT);
+  pinMode(ADC_BL, INPUT);
+  pinMode(ADC_BR, INPUT);
+  pinMode(ADC_TR, INPUT);
 }
 // Handles Front Left motor interrupt
 void FL_A(){
@@ -202,7 +211,7 @@ void update_motor_vel(){
 // Performs Stage 1
 void STG1(){
   // PWM setup
-  
+  analogWrite(STG1_PWM, 127);  // analogWrite value 127 corresponds to 50% duty cycle
   // Timer interrupt setup
   cli(); // Stop interrupts
   TCCR2A = 0;  // set register to 0
@@ -226,6 +235,23 @@ void STG1(){
 // Stage 1 pin sampler
 ISR(TIMER2_COMPA_vect){
   // sample the pin and add to data range
+  switch(target_an_pin) { 
+   case 1:
+      target_value = analogRead(ADC_TOP A0);
+      break  
+   case 2:
+      target_value = analogRead(ADC_TL A1);
+      break;
+   case 3:
+      target_value = analogRead(ADC_BL A2);
+      break;     
+   case 4:
+      target_value = analogRead(ADC_BR A3);
+      break;      
+   case 5:
+      target_value = analogRead(ADC_TR A4);
+      break;
+}
 }
 
 // Performs Stage 3
