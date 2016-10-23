@@ -76,9 +76,9 @@ double br_pwm = 0;
 // Stage variables
 int target_an_pin = 0;  // Case expression for sampling
 int target_value = 0;  // Sampling assignment
-volatile char seq[] = "00000";  // decoded sequence
-volatile char cmd_rot[] = "00000";  // commanded rotation sequence
-volatile char res_rot[] = "00000";  // resultant rotation sequence
+char seq[] = "00000";  // decoded sequence
+char cmd_rot[] = "00000";  // commanded rotation sequence
+char res_rot[] = "00000";  // resultant rotation sequence
 
 // Command variables
 String cmd_str;
@@ -258,8 +258,9 @@ void loop() {
             // handle error here
             break;
             
-    update_status();
     }
+    update_status();
+    delay(50);
     // sleep for some amount of time
     // mainly to keep PID loops updated at
     // reasonable rate
@@ -275,28 +276,28 @@ void receive_str(){
 
     // command string
     if (cmd_str.substring(0) == "C"){
-        fl_cmd_vel = cmd_str.substring(1,6).toFloat();
-        fr_cmd_vel = cmd_str.substring(7,12).toFloat();
-        bl_cmd_vel = cmd_str.substring(13,18).toFloat();
-        br_cmd_vel = cmd_str.substring(19,24).toFloat();
-        STG_trigger = (cmd_str.substring(27).toInt()<<1) | cmd_str.substring(25);
+        cmd_fl_vel = cmd_str.substring(1,6).toFloat();
+        cmd_fr_vel = cmd_str.substring(7,12).toFloat();
+        cmd_bl_vel = cmd_str.substring(13,18).toFloat();
+        cmd_br_vel = cmd_str.substring(19,24).toFloat();
+        STG_trigger = (int)(cmd_str.substring(27).toInt()<<1) | cmd_str.substring(25).toInt();
     // parameter string
     }else{
-        fl_kp = cmd_str.substring(1,6).toFloat();
-        fl_ki = cmd_str.substring(7,12).toFloat();
-        fl_kd = cmd_str.substring(13,18).toFloat();
+        fl_Kp = cmd_str.substring(1,6).toFloat();
+        fl_Ki = cmd_str.substring(7,12).toFloat();
+        fl_Kd = cmd_str.substring(13,18).toFloat();
         
-        fr_kp = cmd_str.substring(19,24).toFloat();
-        fr_ki = cmd_str.substring(25,30).toFloat();
-        fr_kd = cmd_str.substring(31,36).toFloat();
+        fr_Kp = cmd_str.substring(19,24).toFloat();
+        fr_Ki = cmd_str.substring(25,30).toFloat();
+        fr_Kd = cmd_str.substring(31,36).toFloat();
         
-        bl_kp = cmd_str.substring(37,42).toFloat();
-        bl_ki = cmd_str.substring(43,48).toFloat();
-        bl_kd = cmd_str.substring(49,54).toFloat();
+        bl_Kp = cmd_str.substring(37,42).toFloat();
+        bl_Ki = cmd_str.substring(43,48).toFloat();
+        bl_Kd = cmd_str.substring(49,54).toFloat();
         
-        br_kp = cmd_str.substring(55,60).toFloat();
-        br_ki = cmd_str.substring(61,66).toFloat();
-        br_kd = cmd_str.substring(72,77).toFloat();
+        br_Kp = cmd_str.substring(55,60).toFloat();
+        br_Ki = cmd_str.substring(61,66).toFloat();
+        br_Kd = cmd_str.substring(72,77).toFloat();
     }
 }
 
@@ -451,7 +452,7 @@ void update_status(){
     Serial.print("seq:");
     Serial.print(seq);
     Serial.print("rot:");
-    Serial.print(rot_seq);
+    Serial.print(res_rot);
     Serial.print('\n');
 }
 
