@@ -12,7 +12,7 @@ NOTE: The forward face of the robot is defined as the side
 
 '''
 from threading import Lock
-
+import time
 import rospy
 from std_msgs.msg import Header
 
@@ -124,12 +124,16 @@ class BrainStateMachine():
         # Sends commands based on current state
         if self.states[self.current_state] == "wait_for_start":
             # wait for start button to be pressed
+            if state.switches[0]:
+                self.state = "start"
             self.command_pub.publish(cmd_msg)
             return
 
         elif self.states[self.current_state] == "start":
             # Initialize and start Pinky and wait for clearance
             self.command_pub.publish(cmd_msg)
+            time.sleep(5)
+            self.state = "nav_to_STG1_wall"
             return
 
         elif self.states[self.current_state] == "nav_to_STG1_wall":
