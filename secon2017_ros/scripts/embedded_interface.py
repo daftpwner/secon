@@ -27,7 +27,7 @@ class EmbeddedInterface():
         # [[+-]\d+.\d+;]+ should parse out an arbitrary number of floats
         # with signs and delimited by ';'
         self.brain_regex = \
-            "B:sw:[[01];]+wvel:[[+-]\d+.\d+;]+seq:\d{5}rot:\d{5}"
+            "B:sw:[[01];]+wvel:[[+-]\d+.\d+;]+seq:\d{5}rot:\d{5}\n"
         # self.pinky_regex = "P:"
         # command string template
         # x,y,angular velocities; stage 1, 3 triggers
