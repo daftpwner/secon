@@ -57,9 +57,9 @@ class EmbeddedInterface():
         cmd_dict = \
             {
                 "fl_wvel": command.wheel_vels[0],
-                "fl_wvel": command.wheel_vels[1],
-                "fl_wvel": command.wheel_vels[2],
-                "fl_wvel": command.wheel_vels[3],
+                "fr_wvel": command.wheel_vels[1],
+                "bl_wvel": command.wheel_vels[2],
+                "br_wvel": command.wheel_vels[3],
                 "STG1": command.stg1,
                 "STG3": command.stg3
             }

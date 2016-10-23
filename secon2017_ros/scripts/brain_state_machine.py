@@ -109,9 +109,11 @@ class BrainStateMachine():
         # state.header: ROS Header with timestamp
         # state.switches: list of boolean switch states
         # 0: Start Switch
-        # 1: Stage 1 Contact Switch
-        # 2: Stage 3 Contact Switch
-        # 3:
+        # 1: Stage 1 Wall Switch
+        # 2: Stage 1 Contact Switch
+        # 3: Stage 3 Wall Switch
+        # 4: Stage 3 Contact Switch
+        # 5:
         # state.wheel_vels: list of wheel velocities
         # 0: Front Left wheel
         # 1: Front Right wheel
