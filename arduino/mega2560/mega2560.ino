@@ -108,7 +108,7 @@ double br_Ki = 0; // Integral gain
 double br_Kd = 0; // Derivative gain
 
 // Motor shield
-Adafruit_MotorShield AFMS = Adafruit_MotorShield();
+Adafruit_MotorShield AFMS = Adafruit_MotorShield(0x61);
 Adafruit_DCMotor *FL_mot = AFMS.getMotor(1);
 Adafruit_DCMotor *FR_mot = AFMS.getMotor(2);
 Adafruit_DCMotor *BL_mot = AFMS.getMotor(3);
@@ -259,7 +259,7 @@ void loop() {
             break;
             
     }
-    update_status();
+    //update_status();
     delay(50);
     // sleep for some amount of time
     // mainly to keep PID loops updated at
@@ -269,13 +269,15 @@ void loop() {
 // receive and process command/parameter-reassignment strings
 // updates relevant command/parameter variables
 void receive_str(){
+    
     // Get next string
     if (Serial.available() > 0) {
         cmd_str = Serial.readStringUntil('\n');
+    }else{
+      return;
     }
-
     // command string
-    if (cmd_str.substring(0) == "C"){
+    if (cmd_str.substring(0,1) == "C"){
         cmd_fl_vel = cmd_str.substring(1,6).toFloat();
         cmd_fr_vel = cmd_str.substring(7,12).toFloat();
         cmd_bl_vel = cmd_str.substring(13,18).toFloat();
@@ -309,7 +311,6 @@ void cmd_motors() {
     FR_PID.Compute();
     BL_PID.Compute();
     BR_PID.Compute();
-  
     // Front Left motor command
     FL_mot->setSpeed(abs(fl_pwm));
     if (fl_pwm < 0){
