@@ -268,11 +268,36 @@ void loop() {
 // receive and process command/parameter-reassignment strings
 // updates relevant command/parameter variables
 void receive_str(){
+    // Get next string
+    if (Serial.available() > 0) {
+        cmd_str = Serial.readStringUntil('\n');
+    }
 
-  if (Serial.available() > 0) {
-    cmd_str = Serial.readStringUntil('\n');
-  }
-  
+    // command string
+    if (cmd_str.substring(0) == "C"){
+        fl_cmd_vel = cmd_str.substring(1,6).toFloat();
+        fr_cmd_vel = cmd_str.substring(7,12).toFloat();
+        bl_cmd_vel = cmd_str.substring(13,18).toFloat();
+        br_cmd_vel = cmd_str.substring(19,24).toFloat();
+        STG_trigger = (cmd_str.substring(27).toInt()<<1) | cmd_str.substring(25);
+    // parameter string
+    }else{
+        fl_kp = cmd_str.substring(1,6).toFloat();
+        fl_ki = cmd_str.substring(7,12).toFloat();
+        fl_kd = cmd_str.substring(13,18).toFloat();
+        
+        fr_kp = cmd_str.substring(19,24).toFloat();
+        fr_ki = cmd_str.substring(25,30).toFloat();
+        fr_kd = cmd_str.substring(31,36).toFloat();
+        
+        bl_kp = cmd_str.substring(37,42).toFloat();
+        bl_ki = cmd_str.substring(43,48).toFloat();
+        bl_kd = cmd_str.substring(49,54).toFloat();
+        
+        br_kp = cmd_str.substring(55,60).toFloat();
+        br_ki = cmd_str.substring(61,66).toFloat();
+        br_kd = cmd_str.substring(72,77).toFloat();
+    }
 }
 
 // updates motor PID's and sends velocity commands
@@ -412,6 +437,21 @@ void STG3(){
 
 // Check and send statuses including Stage 1 connection validation
 void update_status(){
-  
+    Serial.print("B:sw:");
+    // Print switch states separated by ";"
+    Serial.print("wvel:");
+    Serial.print(fl_vel);
+    Serial.print(";");
+    Serial.print(fr_vel);
+    Serial.print(";");
+    Serial.print(bl_vel);
+    Serial.print(";");
+    Serial.print(br_vel);
+    Serial.print(";");
+    Serial.print("seq:");
+    Serial.print(seq);
+    Serial.print("rot:");
+    Serial.print(rot_seq);
+    Serial.print('\n');
 }
 
