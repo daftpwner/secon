@@ -7,6 +7,9 @@ robotic system.
 It additionally uses dynamic reconfigure to change and adjust ROS and Arduino
 parameters during operation, allowing rapid development.
 
+NOTE: The forward face of the robot is defined as the side
+        containing the Stage 1 interface component.
+
 '''
 from threading import Lock
 
@@ -48,6 +51,13 @@ class BrainStateMachine():
             ]
 
         # Load parameter defaults here
+        self.wheel_coords = \
+            {
+                "front_left":rospy.get_param("front_left_wheel_coords",[1 -1]),
+                "front_right":rospy.get_param("front_right_wheel_coords",[1 -1]),
+                "back_left":rospy.get_param("back_left_wheel_coords",[1 -1]),
+                "back_right":rospy.get_param("back_right_wheel_coords",[1 -1]),                
+            }
 
         # Start dynamic reconfigure server
         self.dynamic_server = Server(BSMCfg, self.reconfigure_callback)
@@ -74,57 +84,96 @@ class BrainStateMachine():
     def generate_state_commands(self):
         # Threadsafe stuff
         with self.lock:
+            # No updates if no new data
             if not self.new_info:
                 return
             else:
+                # state contains all state variables
                 state = self.state
                 self.new_info = False
 
+        # message containing Brain commands
+        # "cmd_msg" contents:
+        # cmd_msg.header: ROS Header with timestamp
+        # cmd_msg.wheel_vels: commanded wheel velocities
+        # 0: Front Left wheel
+        # 1: Front Right wheel
+        # 2: Back Left wheel
+        # 3: Back Right wheel
+        # cmd_msg.stg1: Stage 1 Trigger
+        # cmd_msg.stg3: Stage 3 Trigger
         cmd_msg = BrainCommand()
         cmd_msg.header = Header()
 
+        # "state" contents:
+        # state.header: ROS Header with timestamp
+        # state.switches: list of boolean switch states
+        # 0: Start Switch
+        # 1: Stage 1 Contact Switch
+        # 2: Stage 3 Contact Switch
+        # 3:
+        # state.wheel_vels: list of wheel velocities
+        # 0: Front Left wheel
+        # 1: Front Right wheel
+        # 2: Back Left wheel
+        # 3: Back Right wheel
+        # state.odom: ROS Odometry message containing position and velocity
+        # state.sequence: string containing decoded sequence, "00000" default
+        # state.rotation_sequence: string of entered sequence, "00000" default
+
         # Sends commands based on current state
         if self.states[self.current_state] == "wait_for_start":
+            # wait for start button to be pressed
             self.command_pub.publish(cmd_msg)
             return
 
         elif self.states[self.current_state] == "start":
+            # Initialize and start Pinky and wait for clearance
             self.command_pub.publish(cmd_msg)
             return
 
         elif self.states[self.current_state] == "nav_to_STG1_wall":
+            # Navigate to the wall
             self.command_pub.publish(cmd_msg)
             return
 
         elif self.states[self.current_state] == "nav_to_STG1":
+            # Navigate along wall to Stage 1
             self.command_pub.publish(cmd_msg)
             return
 
         elif self.states[self.current_state] == "align_to_STG1":
+            # Final alignment and connection to Stage 1
             self.command_pub.publish(cmd_msg)
             return
 
         elif self.states[self.current_state] == "perform_STG1":
+            # Trigger Stage 1
             self.command_pub.publish(cmd_msg)
             return
 
         elif self.states[self.current_state] == "nav_to_STG3_wall":
+            # Navigate to Stage 3 wall
             self.command_pub.publish(cmd_msg)
             return
 
         elif self.states[self.current_state] == "nav_to_STG3":
+            # Navigate along wall to Stage 3
             self.command_pub.publish(cmd_msg)
             return
 
         elif self.states[self.current_state] == "align_to_STG3":
+            # Final alignment and connection to Stage 3
             self.command_pub.publish(cmd_msg)
             return
 
         elif self.states[self.current_state] == "perform_STG3":
+            # Trigger Stage 3
             self.command_pub.publish(cmd_msg)
             return
 
         elif self.states[self.current_state] == "end":
+            # Finished, cease operations
             self.command_pub.publish(cmd_msg)
             return
 
@@ -170,3 +219,14 @@ class BrainStateMachine():
             self.state = brain_state
             self.new_info = True
         return
+
+    # Inputs:
+    #   xvel: float representing x velocity in mm/s
+    #   yvel: float representing y velocity in mm/s
+    #   ang_vel: float representing anglular velocity in rad/s
+    # Output:
+    #   tuple containing the four wheel velocities in mm/s
+    def mix_wheel_velocities(self, x_vel, y_vel, ang_vel):
+        # Convert linear and angular velocities to wheel velocities
+
+        return (fl_wvel, fr_wvel, bl_wvel, br_wvel)
