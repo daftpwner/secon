@@ -1,4 +1,4 @@
 Header header
-bool[4] wheel_vels
+int64[4] wheel_vels
 bool stg1
-bool stg2
+bool stg3
