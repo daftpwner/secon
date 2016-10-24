@@ -231,7 +231,7 @@ class BrainStateMachine():
     #   yvel: float representing y velocity in mm/s
     #   ang_vel: float representing anglular velocity in rad/s
     # Output:
-    #   tuple containing the four wheel velocities in mm/s
+    #   tuple containing the four wheel velocitie integers in um/s
     def mix_wheel_velocities(self, x_vel, y_vel, ang_vel):
         # Convert linear and angular velocities to wheel velocities
 
