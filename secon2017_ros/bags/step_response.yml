@@ -1,0 +1,8 @@
+{
+  header: auto,
+
+  wheel_vels: {1000, 1000, 1000, 1000},
+
+  stg1: 0,
+  stg3: 0
+}
