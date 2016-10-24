@@ -16,9 +16,9 @@
 // Pin definitions
 // NOTE: pins 0 and 1 reserved for USB TX/RX
 // Encoder pins
-#define FL_ENC_A 21
+#define FL_ENC_A 2
 #define FL_ENC_B 52
-#define FR_ENC_A 20
+#define FR_ENC_A 3
 #define FR_ENC_B 51
 #define BL_ENC_A 19
 #define BL_ENC_B 15
@@ -108,7 +108,7 @@ double br_Ki = 0; // Integral gain
 double br_Kd = 0; // Derivative gain
 
 // Motor shield
-Adafruit_MotorShield AFMS = Adafruit_MotorShield(0x61);
+Adafruit_MotorShield AFMS = Adafruit_MotorShield();
 Adafruit_DCMotor *FL_mot = AFMS.getMotor(1);
 Adafruit_DCMotor *FR_mot = AFMS.getMotor(2);
 Adafruit_DCMotor *BL_mot = AFMS.getMotor(3);
@@ -126,10 +126,19 @@ void setup() {
     Serial.begin(9600);
     
     // initilize pins
-    attachInterrupt(0,FL_A,CHANGE);
-    attachInterrupt(1,FR_A,CHANGE);
-    attachInterrupt(2,BL_A,CHANGE);
-    attachInterrupt(3,BR_A,CHANGE);
+    pinMode(FL_ENC_A,INPUT_PULLUP);
+    pinMode(FL_ENC_B,INPUT_PULLUP);
+    pinMode(FR_ENC_A,INPUT_PULLUP);
+    pinMode(FR_ENC_B,INPUT_PULLUP);
+    pinMode(BL_ENC_A,INPUT_PULLUP);
+    pinMode(BL_ENC_B,INPUT_PULLUP);
+    pinMode(BR_ENC_A,INPUT_PULLUP);
+    pinMode(BR_ENC_B,INPUT_PULLUP);
+    
+    attachInterrupt(digitalPinToInterrupt(FL_ENC_A),FL_A,CHANGE);
+    attachInterrupt(digitalPinToInterrupt(FR_ENC_A),FR_A,CHANGE);
+    attachInterrupt(digitalPinToInterrupt(BL_ENC_A),BL_A,CHANGE);
+    attachInterrupt(digitalPinToInterrupt(BR_ENC_A),BR_A,CHANGE);
     pinMode(STG1_PWM, OUTPUT);
     pinMode(ADC_TOP, INPUT);
     pinMode(ADC_TL, INPUT);
@@ -168,8 +177,9 @@ void setup() {
 void FL_A() {
     
     cli();  //stop interrupts during routine
-    static int enc = digitalRead(FL_ENC_A) ^ digitalRead(FL_ENC_B);
-    
+    static volatile int enc;
+    enc = digitalRead(FL_ENC_A) ^ digitalRead(FL_ENC_B);
+
     switch(enc){
         
         case (0b1):  // CW
@@ -179,6 +189,7 @@ void FL_A() {
         case (0b0):  // CCW
             fl_enc --;
             break;
+    sei();
     }
 }
 
@@ -186,7 +197,8 @@ void FL_A() {
 void FR_A() {
   
     cli();  //stop interrupts during routine
-    static int enc = digitalRead(FR_ENC_A) ^ digitalRead(FR_ENC_B);
+    static int enc;
+    enc = digitalRead(FR_ENC_A) ^ digitalRead(FR_ENC_B);
   
     switch(enc){
   
@@ -197,6 +209,7 @@ void FR_A() {
         case (0b0):  // CCW
             fr_enc --;
             break;
+    sei();
     }
 }
 
@@ -204,7 +217,8 @@ void FR_A() {
 void BL_A() {
   
     cli();  //stop interrupts during routine
-    static int enc = digitalRead(BL_ENC_A) ^ digitalRead(BL_ENC_B);
+    static int enc;
+    enc = digitalRead(BL_ENC_A) ^ digitalRead(BL_ENC_B);
   
     switch(enc){
   
@@ -215,6 +229,7 @@ void BL_A() {
         case (0b0):  // CCW
             bl_enc --;
             break;
+    sei();
     }
 }
 
@@ -222,7 +237,8 @@ void BL_A() {
 void BR_A() {
   
     cli();  //stop interrupts during routine
-    static int enc = digitalRead(BR_ENC_A) ^ digitalRead(BR_ENC_B);
+    static int enc;
+    enc = digitalRead(BR_ENC_A) ^ digitalRead(BR_ENC_B);
   
     switch(enc){
     
@@ -233,6 +249,7 @@ void BR_A() {
         case (0b0):  // CCW
             br_enc --;
             break;
+    sei();
     }
 }
 
@@ -259,7 +276,7 @@ void loop() {
             break;
             
     }
-    //update_status();
+    update_status();
     delay(50);
     // sleep for some amount of time
     // mainly to keep PID loops updated at
@@ -283,6 +300,7 @@ void receive_str(){
         cmd_bl_vel = cmd_str.substring(13,18).toFloat();
         cmd_br_vel = cmd_str.substring(19,24).toFloat();
         STG_trigger = (int)(cmd_str.substring(27).toInt()<<1) | cmd_str.substring(25).toInt();
+        
     // parameter string
     }else{
         fl_Kp = cmd_str.substring(1,6).toFloat();
@@ -312,36 +330,37 @@ void cmd_motors() {
     BL_PID.Compute();
     BR_PID.Compute();
     // Front Left motor command
-    FL_mot->setSpeed(abs(fl_pwm));
+    FL_mot->setSpeed((uint8_t) abs((int) fl_pwm));
+    
     if (fl_pwm < 0){
-        FL_mot->run(REVERSE);
+        FL_mot->run(BACKWARD);
     }
     else{
         FL_mot->run(FORWARD);
     }
-  
+    
     // Front Right motor command
-    FR_mot->setSpeed(abs(fr_pwm));
+    FR_mot->setSpeed((uint8_t) abs((int) fr_pwm));
     if (fr_pwm < 0){
-        FR_mot->run(REVERSE);
+        FR_mot->run(BACKWARD);
     }
     else{
-        FL_mot->run(FORWARD);
+        FR_mot->run(FORWARD);
     }
   
     // Back Left motor command
-    BL_mot->setSpeed(abs(bl_pwm));
+    BL_mot->setSpeed((uint8_t) abs((int)bl_pwm));
     if (bl_pwm < 0){
-        BL_mot->run(REVERSE);
+        BL_mot->run(BACKWARD);
     }
     else{
         BL_mot->run(FORWARD);
     }
   
     // Back Right motor command
-    BR_mot->setSpeed(abs(br_pwm));
+    BR_mot->setSpeed((uint8_t) abs((int) br_pwm));
     if (br_pwm < 0){
-        BR_mot->run(REVERSE);
+        BR_mot->run(BACKWARD);
     }
     else{
         BR_mot->run(FORWARD);
@@ -354,22 +373,21 @@ void update_motor_vel() {
     // CW is forward for right side, CCW for left
     // Time interval
     cur_time = millis();
-  
+    int del_time = cur_time - prev_time;
     // Front Left
     // ( pulses ) / ( milliseconds / 1000 ) * pulses per revolution * wheel radius
-    fl_vel = (fl_enc)*1000/(cur_time-prev_time)/ENC_PER_REV*WHEEL_RAD;
-  
+    fl_vel = (fl_enc)*1000/((float) del_time)/ENC_PER_REV*WHEEL_RAD;
     // Front Right
     // ( pulses ) / ( milliseconds / 1000 ) * pulses per revolution * wheel radius
-    fr_vel = (fr_enc)*1000/(cur_time-prev_time)/ENC_PER_REV*WHEEL_RAD;
+    fr_vel = (fr_enc)*1000/((float) del_time)/ENC_PER_REV*WHEEL_RAD;
   
     // Front Left
     // ( pulses ) / ( milliseconds / 1000 ) * pulses per revolution * wheel radius
-    bl_vel = (bl_enc)*1000/(cur_time-prev_time)/ENC_PER_REV*WHEEL_RAD;
+    bl_vel = (bl_enc)*1000/((float) del_time)/ENC_PER_REV*WHEEL_RAD;
   
     // Front Left
     // ( pulses ) / ( milliseconds / 1000 ) * pulses per revolution * wheel radius
-    br_vel = (br_enc)*1000/(cur_time-prev_time)/ENC_PER_REV*WHEEL_RAD;
+    br_vel = (br_enc)*1000/((float) del_time)/ENC_PER_REV*WHEEL_RAD;
 
     // time set
     prev_time = cur_time;
