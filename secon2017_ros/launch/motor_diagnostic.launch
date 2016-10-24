@@ -1,0 +1,9 @@
+<launch>
+
+	<node name="embedded_interface" type="embedded_interface.py" pkg="secon2017_ros" output="screen" >
+		<param name="brain_serial_port" value="/dev/ttyACM0" />
+	</node>
+
+	<node name="record" type="record" pkg="rosbag" args="-a -o $(find secon2017_ros)/bags/" />
+
+</launch>
