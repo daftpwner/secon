@@ -278,6 +278,8 @@ void loop() {
     }
     update_status();
     delay(50);
+    cmd_motors();
+    delay(50);
     // sleep for some amount of time
     // mainly to keep PID loops updated at
     // reasonable rate
@@ -375,19 +377,19 @@ void update_motor_vel() {
     cur_time = millis();
     int del_time = cur_time - prev_time;
     // Front Left
-    // ( pulses ) / ( milliseconds / 1000 ) * pulses per revolution * wheel radius
-    fl_vel = (fl_enc)*1000/((float) del_time)/ENC_PER_REV*WHEEL_RAD;
+    // ( pulses ) / ( milliseconds / 1000000 ) * pulses per revolution * wheel radius
+    fl_vel = (fl_enc)*1000000/((float) del_time)/ENC_PER_REV*WHEEL_RAD;
     // Front Right
     // ( pulses ) / ( milliseconds / 1000 ) * pulses per revolution * wheel radius
-    fr_vel = (fr_enc)*1000/((float) del_time)/ENC_PER_REV*WHEEL_RAD;
+    fr_vel = (fr_enc)*1000000/((float) del_time)/ENC_PER_REV*WHEEL_RAD;
   
     // Front Left
     // ( pulses ) / ( milliseconds / 1000 ) * pulses per revolution * wheel radius
-    bl_vel = (bl_enc)*1000/((float) del_time)/ENC_PER_REV*WHEEL_RAD;
+    bl_vel = (bl_enc)*1000000/((float) del_time)/ENC_PER_REV*WHEEL_RAD;
   
     // Front Left
     // ( pulses ) / ( milliseconds / 1000 ) * pulses per revolution * wheel radius
-    br_vel = (br_enc)*1000/((float) del_time)/ENC_PER_REV*WHEEL_RAD;
+    br_vel = (br_enc)*1000000/((float) del_time)/ENC_PER_REV*WHEEL_RAD;
 
     // time set
     prev_time = cur_time;
@@ -458,8 +460,8 @@ void STG3(){
 // Check and send statuses including Stage 1 connection validation
 void update_status(){
     Serial.print("B:sw:");
-    // Print switch states separated by ";"
-    Serial.print("wvel:");
+    // Print switch states with no separation characters
+    Serial.print("wv:");
     Serial.print(fl_vel);
     Serial.print(";");
     Serial.print(fr_vel);
@@ -467,10 +469,9 @@ void update_status(){
     Serial.print(bl_vel);
     Serial.print(";");
     Serial.print(br_vel);
-    Serial.print(";");
-    Serial.print("seq:");
+    Serial.print("sq:");
     Serial.print(seq);
-    Serial.print("rot:");
+    Serial.print("rt:");
     Serial.print(res_rot);
     Serial.print('\n');
 }
