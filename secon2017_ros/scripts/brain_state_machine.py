@@ -226,13 +226,29 @@ class BrainStateMachine():
             self.new_info = True
         return
 
-    # Inputs:
-    #   xvel: float representing x velocity in mm/s
-    #   yvel: float representing y velocity in mm/s
-    #   ang_vel: float representing anglular velocity in rad/s
-    # Output:
-    #   tuple containing the four wheel velocitie integers in um/s
+        # Inputs:
+        #   xvel: float representing x velocity in mm/s
+        #   yvel: float representing y velocity in mm/s
+        #   ang_vel: float representing angular velocity in rad/s
+        # Output:
+        #   tuple containing the four wheel velocities integers in um/s
     def mix_wheel_velocities(self, x_vel, y_vel, ang_vel):
         # Convert linear and angular velocities to wheel velocities
+
+        # 45 degree rotational axis parallel to the main wheel axis
+        # 8 rollers equidistant apart
+        # pdf reference:
+        # http://www.academia.edu/4557426/KINEMATICS_MODELLING_OF_MECANUM_WHEELED_MOBILE_PLATFORM
+
+        # lx_axis is the x-axis distance from each wheel to the center of gravity
+        lx_axis = 121.5  # MUST be in millimeters
+        # ly_axis is the y-axis distance from each wheel to the center of gravity
+        ly_axis = 60  # MUST be in millimeters
+
+        # Below are the equations for obtaining the individual angular velocities
+        fl_wvel = x_vel - y_vel - (lx_axis + ly_axis) * ang_vel
+        fr_wvel = x_vel + y_vel + (lx_axis + ly_axis) * ang_vel
+        br_wvel = x_vel + y_vel - (lx_axis + ly_axis) * ang_vel
+        bl_wvel = x_vel - y_vel + (lx_axis + ly_axis) * ang_vel
 
         return (fl_wvel, fr_wvel, bl_wvel, br_wvel)
