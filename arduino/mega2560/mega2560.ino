@@ -76,6 +76,7 @@ double br_pwm = 0;
 // Stage variables
 int target_an_pin = 0;  // Case expression for sampling
 int target_value = 0;  // Sampling assignment
+int pad[5] = {0}; // Five copper pads
 char seq[] = "00000";  // decoded sequence
 char cmd_rot[] = "00000";  // commanded rotation sequence
 char res_rot[] = "00000";  // resultant rotation sequence
@@ -422,6 +423,53 @@ void STG1() {
     cli();
     TIMSK2 |= (0 << OCIE2A);
     sei();
+
+    //Note: need to iterate target_an_pin somewhere after a sufficient number of samples are taken
+    // Tracks peak values
+    if (target_an_pin == 1) && (target_value > pad[0]){
+      pad[0] = target_value;
+    }
+    else if (target_an_pin == 2) && (target_value > pad[1]){
+      pad[1] = target_value;
+    }
+    else if (target_an_pin == 3) && (target_value > pad[2]){
+      pad[2] = target_value;
+    }
+    else if (target_an_pin == 4) && (target_value > pad[3]){
+      pad[3] = target_value;
+    }
+    else if (target_an_pin == 5) && (target_value > pad[4]){
+      pad[4] = target_value;
+    }
+    
+/*  Check for open circuit; Remove all boundary placeholders and replace with proper 0-1023 analogRead range corresponding to 0-5 V
+    if ((target_an_pin == 3) && (pad[1] > rbbot) && (pad[2] > rbbot) && (pad[1] < rbtop) && (pad[2] < rbtop)){
+      target_an_pin = 1;
+    }
+    
+    Final copper pad assignments
+    Note: Still may need to initalize and test DC input for inductor and rb diode
+    // Done sampling
+    if (target_an_pin == 6){
+      for (m = 0; m < 5; m = m + 1){
+        if (pad[m] > wirebot) && (pad[m] < wiretop){
+          pad[m] = 1; //wire
+        }
+        else if (pad[m] > resbot) && (pad[m] < restop){
+          pad[m] = 2; //resistor
+        }
+        else if (pad[m] > capbot) && (pad[m] < captop){
+          pad[m] = 3; //capacitor
+        }
+        else if (pad[m] > indbot) && (pad[m] < indtop){
+          pad[m] = 4; //inductor
+        }
+        else if ((pad[m] > fbbot) && (pad[m] < fbtop)) || ((pad[m] > rbbot) && (pad[m] < rbtop)){
+          pad[m] = 5; //diode
+        }
+      }
+     }
+*/
 }
 
 // Stage 1 pin sampler
@@ -440,6 +488,7 @@ ISR (TIMER2_COMPA_vect) {
             
         case 3:
             target_value = analogRead(ADC_BL);
+            open_check = 0;
             break;
                
         case 4:
