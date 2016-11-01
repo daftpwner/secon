@@ -179,8 +179,8 @@ void FL_A() {
     
     cli();  //stop interrupts during routine
     static volatile int enc;
-    enc = digitalRead(FL_ENC_A) ^ digitalRead(FL_ENC_B);
-
+    enc = ((PINE & (1<<PE4))>>4) ^ ((PINB & (1<<PB1))>>1);
+    //enc = digitalRead(FL_ENC_A) ^ digitalRead(FL_ENC_B);
     switch(enc){
         
         case (0b1):  // CW
@@ -199,7 +199,8 @@ void FR_A() {
   
     cli();  //stop interrupts during routine
     static int enc;
-    enc = digitalRead(FR_ENC_A) ^ digitalRead(FR_ENC_B);
+    //enc = (PORTE & 0b1000) ^ (PORTB & 0b0010);
+    //enc = digitalRead(FR_ENC_A) ^ digitalRead(FR_ENC_B);
   
     switch(enc){
   
@@ -303,7 +304,6 @@ void receive_str(){
         cmd_bl_vel = cmd_str.substring(13,18).toFloat();
         cmd_br_vel = cmd_str.substring(19,24).toFloat();
         STG_trigger = (int)(cmd_str.substring(27).toInt()<<1) | cmd_str.substring(25).toInt();
-        
     // parameter string
     }else{
         fl_Kp = cmd_str.substring(1,6).toFloat();
@@ -334,7 +334,6 @@ void cmd_motors() {
     BR_PID.Compute();
     // Front Left motor command
     FL_mot->setSpeed((uint8_t) abs((int) fl_pwm));
-    
     if (fl_pwm < 0){
         FL_mot->run(BACKWARD);
     }
@@ -391,7 +390,6 @@ void update_motor_vel() {
     // Front Left
     // ( pulses ) / ( milliseconds / 1000 ) * pulses per revolution * wheel radius
     br_vel = (br_enc)*1000000/((float) del_time)/ENC_PER_REV*WHEEL_RAD;
-
     // time set
     prev_time = cur_time;
     fl_enc = 0;
