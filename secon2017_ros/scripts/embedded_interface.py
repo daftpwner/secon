@@ -85,7 +85,7 @@ class EmbeddedInterface():
 
         with self.brain_port_lock:
             self.Brain.write(self.command_string.format(**cmd_dict))
-        rospy.loginfo(self.command_string.format(**cmd_dict))
+            rospy.loginfo(self.command_string.format(**cmd_dict))
         return
 
     def parameter_callback(self, parameters):
@@ -110,7 +110,7 @@ class EmbeddedInterface():
             }
 
         with self.brain_port_lock:
-            self.brain_port.write(self.parameter_string.format(param_dict))
+            self.brain_port.write(self.parameter_string.format(**param_dict))
         return
 
     def run(self):
@@ -126,7 +126,7 @@ class EmbeddedInterface():
             #    pinky_data = self.Pinky.readline()
             # Parse the command
             self.parse_state_string(brain_data)
-            rospy.logdebug("Read data: %s" %brain_data)
+            rospy.loginfo("Read data: %s" %brain_data)
             rate.sleep()
         return
 

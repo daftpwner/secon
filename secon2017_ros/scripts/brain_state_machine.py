@@ -104,6 +104,7 @@ class BrainStateMachine():
         # cmd_msg.stg3: Stage 3 Trigger
         cmd_msg = BrainCommand()
         cmd_msg.header = Header()
+        cmd_msg.header.stamp = rospy.Time.now()
 
         # "state" contents:
         # state.header: ROS Header with timestamp
