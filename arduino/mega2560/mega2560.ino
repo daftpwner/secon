@@ -77,6 +77,7 @@ double br_pwm = 0;
 int target_an_pin = 0;  // Case expression for sampling
 int target_value = 0;  // Sampling assignment
 int pad[5] = {0}; // Five copper pads
+int sample_count = 0; // Number of samples taken
 char seq[] = "00000";  // decoded sequence
 char cmd_rot[] = "00000";  // commanded rotation sequence
 char res_rot[] = "00000";  // resultant rotation sequence
@@ -417,58 +418,77 @@ void STG1() {
     TIMSK2 |= (1 << OCIE2A); // enable timer compare interrupt
     sei(); // resume interrupts
 
+    
+    //Note: need to iterate target_an_pin somewhere after a sufficient number of samples are taken
+    // Tracks peak values
+    while (target_an_pin < 5){
+      if (target_an_pin == 0) && (target_value > pad[0]){
+        pad[0] = target_value;
+      }
+      else if (target_an_pin == 1) && (target_value > pad[1]){
+        pad[1] = target_value;
+      }
+      else if (target_an_pin == 2) && (target_value > pad[2]){
+        pad[2] = target_value;
+      }
+      else if (target_an_pin == 3) && (target_value > pad[3]){
+        pad[3] = target_value;
+      }
+      else if (target_an_pin == 4) && (target_value > pad[4]){
+        pad[4] = target_value;
+      }
+      sample_count = sample_count + 1;
+      // move to next copper pad after adequate number of samples
+      if (sample_count > 100){
+        sample_count = 0;
+        target_an_pin = target_an_pin + 1;
+      }
+      // Check for open circuit; 3.8-4 V on pads 1 and 2 if open
+      if ((target_an_pin == 2) && (pad[0] > 777) && (pad[1] > 777) && (pad[0] < 819) && (pad[1] < 819)){
+        target_an_pin = 0;
+      }
+    }
+
     // disable timer interrupt
     cli();
     TIMSK2 |= (0 << OCIE2A);
     sei();
 
-    //Note: need to iterate target_an_pin somewhere after a sufficient number of samples are taken
-    // Tracks peak values
-    if (target_an_pin == 1) && (target_value > pad[0]){
-      pad[0] = target_value;
-    }
-    else if (target_an_pin == 2) && (target_value > pad[1]){
-      pad[1] = target_value;
-    }
-    else if (target_an_pin == 3) && (target_value > pad[2]){
-      pad[2] = target_value;
-    }
-    else if (target_an_pin == 4) && (target_value > pad[3]){
-      pad[3] = target_value;
-    }
-    else if (target_an_pin == 5) && (target_value > pad[4]){
-      pad[4] = target_value;
-    }
-    
-/*  Check for open circuit; Remove all boundary placeholders and replace with proper 0-1023 analogRead range corresponding to 0-5 V
-    if ((target_an_pin == 3) && (pad[1] > rbbot) && (pad[2] > rbbot) && (pad[1] < rbtop) && (pad[2] < rbtop)){
-      target_an_pin = 1;
-    }
-    
-    Final copper pad assignments
-    Note: Still may need to initalize and test DC input for inductor and rb diode
-    // Done sampling
-    if (target_an_pin == 6){
-      for (m = 0; m < 5; m = m + 1){
-        if (pad[m] > wirebot) && (pad[m] < wiretop){
-          pad[m] = 1; //wire
+    // Done sampling; Final identification; Voltage conversion = Peak*205
+    for (m = 0; m < 5; m = m + 1){
+      // Wire = 0 - 50 mV
+      if (pad[m] > 0) && (pad[m] < 11){
+        pad[m] = 1; //wire
+      }
+      // Resistor = 1.5 - 2.5 V
+      else if (pad[m] > 307) && (pad[m] < 512){
+        pad[m] = 2; //resistor
+      }
+      // Capacitor = 200 - 535 mV
+      else if (pad[m] > 41) && (pad[m] < 110){
+        pad[m] = 3; //capacitor
+      }
+      // Inductor or RB Diode = 3 - 4 V 
+      else if (pad[m] > 614) && (pad[m] < 819){
+        pad[m] = 4; //inductor or RB Diode
+      }
+      // FB Diode = 550 - 575 mV
+      else if (pad[m] > 113) && (pad[m] < 118){
+        pad[m] = 5; //diode
+      }
+      // DC test for Inductor and RB Diode
+      if (pad[m] == 4){
+        analogWrite(STG1_PWM, 255);
+        delay(2000);
+        target_value = analogRead(STG1_PWM);
+        // Inductor DC Range: 110-150 mV (130 mV)
+        if (target_value > 22) && (target_value < 31){
+         pad[m] = 4; //inductor
         }
-        else if (pad[m] > resbot) && (pad[m] < restop){
-          pad[m] = 2; //resistor
-        }
-        else if (pad[m] > capbot) && (pad[m] < captop){
-          pad[m] = 3; //capacitor
-        }
-        else if (pad[m] > indbot) && (pad[m] < indtop){
-          pad[m] = 4; //inductor
-        }
-        else if ((pad[m] > fbbot) && (pad[m] < fbtop)) || ((pad[m] > rbbot) && (pad[m] < rbtop)){
+        else{
           pad[m] = 5; //diode
         }
       }
-     }
-*/
-}
 
 // Stage 1 pin sampler
 ISR (TIMER2_COMPA_vect) {
@@ -476,24 +496,24 @@ ISR (TIMER2_COMPA_vect) {
     // sample the pin and add to data range
     switch(target_an_pin) { 
     
-        case 1:
+        case 0:
             target_value = analogRead(ADC_TOP);
             break;
             
-        case 2:
+        case 1:
             target_value = analogRead(ADC_TL);
             break;
             
-        case 3:
+        case 2:
             target_value = analogRead(ADC_BL);
             open_check = 0;
             break;
                
-        case 4:
+        case 3:
             target_value = analogRead(ADC_BR);
             break; 
                  
-        case 5:
+        case 4:
             target_value = analogRead(ADC_TR);
             break;
     }
