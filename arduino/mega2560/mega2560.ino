@@ -460,11 +460,13 @@ void STG1() {
             }
             break;
       }
-      // set number of samples wanted
+      // set number of samples wanted for each pad
       if (sample_count >= 250){
         sample_count = 0;
         target_an_pin = target_an_pin + 1;
-        analogWrite(STG1_PWM, 0);  // reset to get initial transient
+        // reset input voltage to get initial transient for next pad
+        analogWrite(STG1_PWM, 0);  
+        delay(2000);
         analogWrite(STG1_PWM, 255);
       }
     }
@@ -492,6 +494,7 @@ void STG1() {
     //cli();
     //TIMSK2 |= (0 << OCIE2A);
     //sei();
+    
     analogWrite(STG1_PWM, 0); //done    
 }
 
