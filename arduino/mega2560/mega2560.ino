@@ -402,95 +402,100 @@ void update_motor_vel() {
 // Performs Stage 1
 void STG1() {
   
-    // PWM setup
-    analogWrite(STG1_PWM, 127);  // analogWrite value 127 corresponds to 50% duty cycle
+    // DC Setup
+    analogWrite(STG1_PWM, 255);  // analogWrite value 255 = DC
   
     // Timer interrupt setup
-    cli(); // Stop interrupts
-    TCCR2A = 0;  // set register to 0
-    TCCR2B = 0;  // set register to 0
-    TCNT2 = 0;   // set counter to 0
+    //cli(); // Stop interrupts
+    //TCCR2A = 0;  // set register to 0
+    //TCCR2B = 0;  // set register to 0
+    //TCNT2 = 0;   // set counter to 0
   
     // compare match register set for 8kHz increments
-    OCR2A = 249; // = (16e10) / (8000*8) - 1
-    TCCR2A |= (1 << WGM21);  // CTC mode
-    TCCR2B |= (1 << CS21);  // CS21 bit for 8 prescaler
-    TIMSK2 |= (1 << OCIE2A); // enable timer compare interrupt
-    sei(); // resume interrupts
+    //OCR2A = 249; // = (16e10) / (8000*8) - 1
+    //TCCR2A |= (1 << WGM21);  // CTC mode
+    //TCCR2B |= (1 << CS21);  // CS21 bit for 8 prescaler
+    //TIMSK2 |= (1 << OCIE2A); // enable timer compare interrupt
+    //sei(); // resume interrupts
 
-    
-    //Note: need to iterate target_an_pin somewhere after a sufficient number of samples are taken
-    // Tracks peak values
+    // Samples DC peak values
     while (target_an_pin < 5){
-      if (target_an_pin == 0) && (target_value > pad[0]){
-        pad[0] = target_value;
+        if ((target_an_pin == 2) && (pad[0] >= 37) && (pad[1] >= 37) && (pad[0] <= 40) && (pad[1] <= 40)){
+          target_an_pin = 0;
+        }
+        switch(target_an_pin) { 
+          case 0:
+            target_value = analogRead(ADC_TOP);
+            if (target_value >= pad[0]){
+              pad[0] = target_value;
+              sample_count = sample_count + 1;
+            }
+            break;   
+          case 1:
+            target_value = analogRead(ADC_TL);
+            if (target_value >= pad[1]){
+              pad[1] = target_value;
+              sample_count = sample_count + 1;
+            }
+            break;  
+          case 2:
+            target_value = analogRead(ADC_BL);
+            if (target_value >= pad[2]){
+              pad[2] = target_value;
+              sample_count = sample_count + 1;
+            }
+            break;      
+          case 3:
+            target_value = analogRead(ADC_BR);
+            if (target_value >= pad[3]){
+              pad[3] = target_value;
+              sample_count = sample_count + 1;
+            }
+            break;        
+          case 4:
+            target_value = analogRead(ADC_TR);
+            if (target_value >= pad[4]){
+              pad[4] = target_value;
+              sample_count = sample_count + 1;
+            }
+            break;
       }
-      else if (target_an_pin == 1) && (target_value > pad[1]){
-        pad[1] = target_value;
-      }
-      else if (target_an_pin == 2) && (target_value > pad[2]){
-        pad[2] = target_value;
-      }
-      else if (target_an_pin == 3) && (target_value > pad[3]){
-        pad[3] = target_value;
-      }
-      else if (target_an_pin == 4) && (target_value > pad[4]){
-        pad[4] = target_value;
-      }
-      sample_count = sample_count + 1;
-      // move to next copper pad after adequate number of samples
-      if (sample_count > 100){
+      // set number of samples wanted
+      if (sample_count >= 250){
         sample_count = 0;
         target_an_pin = target_an_pin + 1;
+        analogWrite(STG1_PWM, 0);  // reset to get initial transient
+        analogWrite(STG1_PWM, 255);
       }
-      // Check for open circuit; 3.8-4 V on pads 1 and 2 if open
-      if ((target_an_pin == 2) && (pad[0] > 777) && (pad[1] > 777) && (pad[0] < 819) && (pad[1] < 819)){
-        target_an_pin = 0;
+    }
+
+    // Final pad assigments
+    for (int m = 0; m < 5; m = m + 1){
+      if ((pad[m] >= 0) && (pad[m] <= 10)){
+        pad[m] = 1; //wire
+      }
+      else if ((pad[m] >= 34) && (pad[m] <= 36)){
+        pad[m] = 2; //resistor
+      }
+      else if ((pad[m] >= 75) && (pad[m] <= 95)){
+        pad[m] = 3; //capacitor
+      }
+      else if ((pad[m] >= 20) && (pad[m] <= 26)){
+        pad[m] = 4; //inductor
+      }
+      else if ((pad[m] >= 37) && (pad[m] <= 40)){
+        pad[m] = 5; //diode
       }
     }
 
     // disable timer interrupt
-    cli();
-    TIMSK2 |= (0 << OCIE2A);
-    sei();
+    //cli();
+    //TIMSK2 |= (0 << OCIE2A);
+    //sei();
+    analogWrite(STG1_PWM, 0); //done    
+}
 
-    // Done sampling; Final identification; Voltage conversion = Peak*205
-    for (m = 0; m < 5; m = m + 1){
-      // Wire = 0 - 50 mV
-      if (pad[m] > 0) && (pad[m] < 11){
-        pad[m] = 1; //wire
-      }
-      // Resistor = 1.5 - 2.5 V
-      else if (pad[m] > 307) && (pad[m] < 512){
-        pad[m] = 2; //resistor
-      }
-      // Capacitor = 200 - 535 mV
-      else if (pad[m] > 41) && (pad[m] < 110){
-        pad[m] = 3; //capacitor
-      }
-      // Inductor or RB Diode = 3 - 4 V 
-      else if (pad[m] > 614) && (pad[m] < 819){
-        pad[m] = 4; //inductor or RB Diode
-      }
-      // FB Diode = 550 - 575 mV
-      else if (pad[m] > 113) && (pad[m] < 118){
-        pad[m] = 5; //diode
-      }
-      // DC test for Inductor and RB Diode
-      if (pad[m] == 4){
-        analogWrite(STG1_PWM, 255);
-        delay(2000);
-        target_value = analogRead(STG1_PWM);
-        // Inductor DC Range: 110-150 mV (130 mV)
-        if (target_value > 22) && (target_value < 31){
-         pad[m] = 4; //inductor
-        }
-        else{
-          pad[m] = 5; //diode
-        }
-      }
-
-// Stage 1 pin sampler
+/* // Stage 1 pin sampler
 ISR (TIMER2_COMPA_vect) {
   
     // sample the pin and add to data range
@@ -517,7 +522,7 @@ ISR (TIMER2_COMPA_vect) {
             target_value = analogRead(ADC_TR);
             break;
     }
-}
+}*/
 
 // Performs Stage 3
 void STG3(){
