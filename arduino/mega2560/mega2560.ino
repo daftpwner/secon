@@ -420,6 +420,7 @@ void STG1() {
 
     // Samples DC peak values
     while (target_an_pin < 5){
+        delay(0.125); // Interval between samples
         if ((target_an_pin == 2) && (pad[0] >= 37) && (pad[1] >= 37) && (pad[0] <= 40) && (pad[1] <= 40)){
           target_an_pin = 0;
         }
@@ -461,7 +462,7 @@ void STG1() {
             break;
       }
       // set number of samples wanted for each pad
-      if (sample_count >= 250){
+      if (sample_count >= 1000){
         sample_count = 0;
         target_an_pin = target_an_pin + 1;
         // reset input voltage to get initial transient for next pad
@@ -514,7 +515,6 @@ ISR (TIMER2_COMPA_vect) {
             
         case 2:
             target_value = analogRead(ADC_BL);
-            open_check = 0;
             break;
                
         case 3:
