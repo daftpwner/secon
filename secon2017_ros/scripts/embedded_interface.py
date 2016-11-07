@@ -9,7 +9,7 @@ Sensor data is also forwarded up from the Arduino to the State Machine.
 '''
 
 import rospy
-from secon2017_ros.msg import BrainState, BrainCommand
+from secon2017_ros.msg import BrainState, BrainCommand, BrainParameters
 from std_msgs.msg import Header
 
 import serial
@@ -49,7 +49,7 @@ class EmbeddedInterface():
         # x,y,angular velocities; stage 1, 3 triggers
         self.command_string = "C{fl_wvel:=+05d},{fr_wvel:=+05d},{bl_wvel:=+05d},{br_wvel:=+05d};{STG1},{STG3}\n"
         # parameter string template
-        self.parameter_string = "P{fl_kp:=+05.3f},{fl_kp:=+05.3f},{fl_kp:=+05.3f},{fr_kp:=+05.3f},{fr_ki:=+05.3f},{fr_kd:=+05.3f},{bl_kp:=+05.3f},{bl_ki:=+05.3f},{bl_kd:=+05.3f},{br_kp:=+05.3f},{br_ki:=+05.3f},{br_kd:=+05.3f}\n"
+        self.parameter_string = "P{fl_kp:=+06.2f}{fl_ki:=+06.2f}{fl_kd:=+06.2f}{fr_kp:=+06.2f}{fr_ki:=+06.2f}{fr_kd:=+06.2f}{bl_kp:=+06.2f}{bl_ki:=+06.2f}{bl_kd:=+06.2f}{br_kp:=+06.2f}{br_ki:=+06.2f}{br_kd:=+06.2f}\n"
         # Set parameters
         self.rate = rospy.get_param("update_frequency", 10)
         self.brain_port = rospy.get_param(
@@ -60,6 +60,7 @@ class EmbeddedInterface():
             "~pinky_serial_port", "/dev/arduinos/pinky")
         # Set callbacks
         self.brain_cmd_sub = rospy.Subscriber("brain_cmd", BrainCommand, self.command_callback)
+        self.brain_param_sub = rospy.Subscriber("brain_parameters", BrainParameters, self.parameter_callback)
         # Set publishers
         self.brain_state_pub = rospy.Publisher("brain_state", BrainState, queue_size=2)
         # Open serial ports
@@ -110,7 +111,8 @@ class EmbeddedInterface():
             }
 
         with self.brain_port_lock:
-            self.brain_port.write(self.parameter_string.format(**param_dict))
+            self.Brain.write(self.parameter_string.format(**param_dict))
+            rospy.loginfo(self.parameter_string.format(**param_dict))
         return
 
     def run(self):
@@ -126,7 +128,7 @@ class EmbeddedInterface():
             #    pinky_data = self.Pinky.readline()
             # Parse the command
             self.parse_state_string(brain_data)
-            rospy.loginfo("Read data: %s" %brain_data)
+            #rospy.loginfo("Read data: %s" %brain_data)
             rate.sleep()
         return
 
