@@ -1,5 +1,7 @@
 <launch>
 
+	<node name="state_machine" type="brain_state_machine.py" pkg="secon2017_ros" output="screen" />
+
 	<node name="embedded_interface" type="embedded_interface.py" pkg="secon2017_ros" output="screen" >
 		<param name="brain_serial_port" value="/dev/ttyACM0" />
 	</node>
