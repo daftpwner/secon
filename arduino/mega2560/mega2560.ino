@@ -23,7 +23,7 @@
 #define BL_ENC_A 19
 #define BL_ENC_B 15
 #define BR_ENC_A 18
-#define BR_ENC_B 12
+#define BR_ENC_B 4
 
 // PWM pins
 #define STG1_PWM 44
@@ -90,27 +90,27 @@ int STG_trigger = 0b00;
 // These are parameters that can be changed at runtime via ROS
 
 // Front Left wheel
-double fl_Kp = 1; // Proportional gain
-double fl_Ki = 0; // Integral gain
-double fl_Kd = 0; // Derivative gain
+double fl_Kp = 0.54; // Proportional gain
+double fl_Ki = 7.0; // Integral gain
+double fl_Kd = 0.03; // Derivative gain
 
 // Front Right wheel
-double fr_Kp = 1; // Proportional gain
-double fr_Ki = 0; // Integral gain
-double fr_Kd = 0; // Derivative gain
+double fr_Kp = 0.54; // Proportional gain
+double fr_Ki = 7.0; // Integral gain
+double fr_Kd = 0.03; // Derivative gain
 
 // Back Left wheel
-double bl_Kp = 1; // Proportional gain
-double bl_Ki = 0; // Integral gain
-double bl_Kd = 0; // Derivative gain
+double bl_Kp = 0.54; // Proportional gain
+double bl_Ki = 7.0; // Integral gain
+double bl_Kd = 0.03; // Derivative gain
 
 // Back Right wheel
-double br_Kp = 1; // Proportional gain
-double br_Ki = 0; // Integral gain
-double br_Kd = 0; // Derivative gain
+double br_Kp = 0.54; // Proportional gain
+double br_Ki = 7.0; // Integral gain
+double br_Kd = 0.03; // Derivative gain
 
 // Motor shield
-Adafruit_MotorShield AFMS = Adafruit_MotorShield();
+Adafruit_MotorShield AFMS = Adafruit_MotorShield(0x61);
 Adafruit_DCMotor *FL_mot = AFMS.getMotor(1);
 Adafruit_DCMotor *FR_mot = AFMS.getMotor(2);
 Adafruit_DCMotor *BL_mot = AFMS.getMotor(3);
@@ -127,7 +127,7 @@ void setup() {
     // USB port setup
     Serial.begin(9600);
     
-    // initilize pins
+    // initilize encoder pins
     pinMode(FL_ENC_A,INPUT_PULLUP);
     pinMode(FL_ENC_B,INPUT_PULLUP);
     pinMode(FR_ENC_A,INPUT_PULLUP);
@@ -136,11 +136,13 @@ void setup() {
     pinMode(BL_ENC_B,INPUT_PULLUP);
     pinMode(BR_ENC_A,INPUT_PULLUP);
     pinMode(BR_ENC_B,INPUT_PULLUP);
-    
+
+    // Set interrupts for the four motor A encoders
     attachInterrupt(digitalPinToInterrupt(FL_ENC_A),FL_A,CHANGE);
     attachInterrupt(digitalPinToInterrupt(FR_ENC_A),FR_A,CHANGE);
     attachInterrupt(digitalPinToInterrupt(BL_ENC_A),BL_A,CHANGE);
     attachInterrupt(digitalPinToInterrupt(BR_ENC_A),BR_A,CHANGE);
+    
     pinMode(STG1_PWM, OUTPUT);
     pinMode(ADC_TOP, INPUT);
     pinMode(ADC_TL, INPUT);
@@ -180,15 +182,16 @@ void FL_A() {
     
     cli();  //stop interrupts during routine
     static volatile int enc;
+    // Reads the two pins and xors them
     enc = ((PINE & (1<<PE4))>>4) ^ ((PINB & (1<<PB1))>>1);
     //enc = digitalRead(FL_ENC_A) ^ digitalRead(FL_ENC_B);
     switch(enc){
         
-        case (0b1):  // CW
+        case (0b1):  // CW Forward
             fl_enc ++;
             break;
         
-        case (0b0):  // CCW
+        case (0b0):  // CCW Backwards
             fl_enc --;
             break;
     sei();
@@ -200,17 +203,18 @@ void FR_A() {
   
     cli();  //stop interrupts during routine
     static int enc;
-    //enc = (PORTE & 0b1000) ^ (PORTB & 0b0010);
+    // Reads the two pins and xors them
+    enc = ((PINE & (1<<PE5))>>5) ^ ((PINB & (1<<PB2))>>2);
     //enc = digitalRead(FR_ENC_A) ^ digitalRead(FR_ENC_B);
   
     switch(enc){
   
-        case (0b1):  // CW
-            fr_enc ++;
+        case (0b1):  // CW Backwards
+            fr_enc --;
             break;
       
-        case (0b0):  // CCW
-            fr_enc --;
+        case (0b0):  // CCW Forwards
+            fr_enc ++;
             break;
     sei();
     }
@@ -221,15 +225,17 @@ void BL_A() {
   
     cli();  //stop interrupts during routine
     static int enc;
-    enc = digitalRead(BL_ENC_A) ^ digitalRead(BL_ENC_B);
+    // Reads the two pins and xors them
+    enc = ((PIND & (1<<PD2))>>2) ^ ((PINJ & (1<<PJ0)) >> 0);
+    //enc = digitalRead(BL_ENC_A) ^ digitalRead(BL_ENC_B);
   
     switch(enc){
   
-        case (0b1):  // CW
+        case (0b1):  // CW Forwards
             bl_enc ++;
             break;
   
-        case (0b0):  // CCW
+        case (0b0):  // CCW Backwards
             bl_enc --;
             break;
     sei();
@@ -241,16 +247,18 @@ void BR_A() {
   
     cli();  //stop interrupts during routine
     static int enc;
-    enc = digitalRead(BR_ENC_A) ^ digitalRead(BR_ENC_B);
+    // Reads the two pins and xors them
+    enc = ((PIND & (1<<PD3))>>3) ^ ((PING & (1<<PG5))>>5);
+    //enc = digitalRead(BR_ENC_A) ^ digitalRead(BR_ENC_B);
   
     switch(enc){
     
-        case (0b1):  // CW
-            br_enc ++;
+        case (0b1):  // CW Backwards
+            br_enc --;
             break;
   
-        case (0b0):  // CCW
-            br_enc --;
+        case (0b0):  // CCW Forwards
+            br_enc ++;
             break;
     sei();
     }
@@ -258,9 +266,9 @@ void BR_A() {
 
 void loop() {
   
-    receive_str();
     cmd_motors();
-  
+    receive_str();
+    
     switch(STG_trigger){
         
         case (0b00):  // Do nothing
@@ -279,13 +287,17 @@ void loop() {
             break;
             
     }
-    update_status();
-    delay(50);
+    update_status(); // Send update string at about 10 Hz
+    delay(20);
     cmd_motors();
-    delay(50);
+    delay(20);
+    cmd_motors();
+    delay(20);
+    cmd_motors();
+    delay(20);
     // sleep for some amount of time
     // mainly to keep PID loops updated at
-    // reasonable rate
+    // reasonable rate of about 50 Hz
 }
 
 // receive and process command/parameter-reassignment strings
@@ -307,21 +319,25 @@ void receive_str(){
         STG_trigger = (int)(cmd_str.substring(27).toInt()<<1) | cmd_str.substring(25).toInt();
     // parameter string
     }else{
-        fl_Kp = cmd_str.substring(1,6).toFloat();
-        fl_Ki = cmd_str.substring(7,12).toFloat();
-        fl_Kd = cmd_str.substring(13,18).toFloat();
+        fl_Kp = cmd_str.substring(1,7).toFloat();
+        fl_Ki = cmd_str.substring(7,13).toFloat();
+        fl_Kd = cmd_str.substring(13,19).toFloat();
         
-        fr_Kp = cmd_str.substring(19,24).toFloat();
-        fr_Ki = cmd_str.substring(25,30).toFloat();
-        fr_Kd = cmd_str.substring(31,36).toFloat();
+        fr_Kp = cmd_str.substring(19,25).toFloat();
+        fr_Ki = cmd_str.substring(25,31).toFloat();
+        fr_Kd = cmd_str.substring(31,37).toFloat();
         
-        bl_Kp = cmd_str.substring(37,42).toFloat();
-        bl_Ki = cmd_str.substring(43,48).toFloat();
-        bl_Kd = cmd_str.substring(49,54).toFloat();
+        bl_Kp = cmd_str.substring(37,43).toFloat();
+        bl_Ki = cmd_str.substring(43,49).toFloat();
+        bl_Kd = cmd_str.substring(49,55).toFloat();
         
-        br_Kp = cmd_str.substring(55,60).toFloat();
-        br_Ki = cmd_str.substring(61,66).toFloat();
-        br_Kd = cmd_str.substring(72,77).toFloat();
+        br_Kp = cmd_str.substring(55,61).toFloat();
+        br_Ki = cmd_str.substring(61,67).toFloat();
+        br_Kd = cmd_str.substring(72,78).toFloat();
+        FL_PID.SetTunings(fl_Kp, fl_Ki, fl_Kd);
+        FR_PID.SetTunings(fr_Kp, fr_Ki, fr_Kd);
+        BL_PID.SetTunings(bl_Kp, bl_Ki, bl_Kd);
+        BR_PID.SetTunings(br_Kp, br_Ki, br_Kd);
     }
 }
 
@@ -336,10 +352,10 @@ void cmd_motors() {
     // Front Left motor command
     FL_mot->setSpeed((uint8_t) abs((int) fl_pwm));
     if (fl_pwm < 0){
-        FL_mot->run(BACKWARD);
+        FL_mot->run(FORWARD);
     }
     else{
-        FL_mot->run(FORWARD);
+        FL_mot->run(BACKWARD);
     }
     
     // Front Right motor command
@@ -354,10 +370,10 @@ void cmd_motors() {
     // Back Left motor command
     BL_mot->setSpeed((uint8_t) abs((int)bl_pwm));
     if (bl_pwm < 0){
-        BL_mot->run(BACKWARD);
+        BL_mot->run(FORWARD);
     }
     else{
-        BL_mot->run(FORWARD);
+        BL_mot->run(BACKWARD);
     }
   
     // Back Right motor command
@@ -379,18 +395,18 @@ void update_motor_vel() {
     int del_time = cur_time - prev_time;
     // Front Left
     // ( pulses ) / ( milliseconds / 1000000 ) * pulses per revolution * wheel radius
-    fl_vel = (fl_enc)*1000000/((float) del_time)/ENC_PER_REV*WHEEL_RAD;
+    fl_vel = (fl_enc)*1000/((float) del_time)/ENC_PER_REV*WHEEL_RAD*2*3.14;
     // Front Right
     // ( pulses ) / ( milliseconds / 1000 ) * pulses per revolution * wheel radius
-    fr_vel = (fr_enc)*1000000/((float) del_time)/ENC_PER_REV*WHEEL_RAD;
+    fr_vel = (fr_enc)*1000/((float) del_time)/ENC_PER_REV*WHEEL_RAD*2*3.14;
   
     // Front Left
     // ( pulses ) / ( milliseconds / 1000 ) * pulses per revolution * wheel radius
-    bl_vel = (bl_enc)*1000000/((float) del_time)/ENC_PER_REV*WHEEL_RAD;
+    bl_vel = (bl_enc)*1000/((float) del_time)/ENC_PER_REV*WHEEL_RAD*2*3.14;
   
     // Front Left
     // ( pulses ) / ( milliseconds / 1000 ) * pulses per revolution * wheel radius
-    br_vel = (br_enc)*1000000/((float) del_time)/ENC_PER_REV*WHEEL_RAD;
+    br_vel = (br_enc)*1000/((float) del_time)/ENC_PER_REV*WHEEL_RAD*2*3.14;
     // time set
     prev_time = cur_time;
     fl_enc = 0;
@@ -497,6 +513,7 @@ void STG1() {
     //sei();
     
     analogWrite(STG1_PWM, 0); //done    
+
 }
 
 /* // Stage 1 pin sampler
