@@ -17,7 +17,7 @@ import rospy
 from std_msgs.msg import Header
 
 from dynamic_reconfigure.server import Server
-from secon2017_ros.cfg import BrainStateMachinConfig as BSMCfg
+from secon2017_ros.cfg import BrainStateMachineConfig as BSMCfg
 from secon2017_ros.msg import BrainState, BrainParameters, BrainCommand
 
 
@@ -31,6 +31,7 @@ class BrainStateMachine():
         self.lock = Lock()
         self.new_info = True
         self.current_state = 0
+        self.state = BrainState()
         # Lists all states of Brain
         self.states = \
             [
@@ -58,9 +59,7 @@ class BrainStateMachine():
                 "back_left":rospy.get_param("back_left_wheel_coords",[1 -1]),
                 "back_right":rospy.get_param("back_right_wheel_coords",[1 -1]),                
             }
-
-        # Start dynamic reconfigure server
-        self.dynamic_server = Server(BSMCfg, self.reconfigure_callback)
+        self.rate = rospy.get_param("rate",10)
 
         # Set subscribers
         rospy.Subscriber("brain_state", BrainState, self.brain_state_callback)
@@ -72,11 +71,13 @@ class BrainStateMachine():
         self.command_pub = rospy.Publisher(
             "brain_commands", BrainCommand
         )
+        # Start dynamic reconfigure server
+        self.dynamic_server = Server(BSMCfg, self.reconfigure_callback)
         # Start state machine loop
         self.run()
 
     def run(self):
-        rate = rospy.rate(self.rate)
+        rate = rospy.Rate(self.rate)
         while not rospy.is_shutdown():
             self.generate_state_commands()
             rate.sleep()
@@ -127,55 +128,82 @@ class BrainStateMachine():
         # Sends commands based on current state
         if self.states[self.current_state] == "wait_for_start":
             # wait for start button to be pressed
-            if state.switches[0]:
-                self.state = "start"
-            self.command_pub.publish(cmd_msg)
+            if len(state.switches) > 0 and state.switches[0]:
+                self.current_state += 1
+                self.command_pub.publish(cmd_msg)
             return
 
         elif self.states[self.current_state] == "start":
             # Initialize and start Pinky and wait for clearance
             self.command_pub.publish(cmd_msg)
             time.sleep(5)
-            self.state = "nav_to_STG1_wall"
+            self.current_state += 1
             return
 
         elif self.states[self.current_state] == "nav_to_STG1_wall":
             # Navigate to the wall
-            self.command_pub.publish(cmd_msg)
+
+            # Bump switch hits the wall
+            if len(state.switches) > 1 and state.switches[1]:
+                self.current_state += 1
+                self.command_pub.publish(cmd_msg)
+            else:
+                # Move forward
+                # TODO: set forward speed here
+                self.command_pub.publish(cmd_msg)
             return
 
         elif self.states[self.current_state] == "nav_to_STG1":
             # Navigate along wall to Stage 1
+            # Bump switch hits stage 1
+            if len(state.switches) > 2 and state.switches[2]:
+                self.current_state += 1
+                self.command_pub.publish(cmd_msg)
+            # Keep sliding along wall
+            # TODO: set sideways speed here
             self.command_pub.publish(cmd_msg)
             return
 
         elif self.states[self.current_state] == "align_to_STG1":
             # Final alignment and connection to Stage 1
+            # TODO: make adjustments to position and trigger stage 1
             self.command_pub.publish(cmd_msg)
             return
 
         elif self.states[self.current_state] == "perform_STG1":
             # Trigger Stage 1
+            # if valid sequence
+            # TODO: proceed to next state
+            # TODO: display sequence
+            # else if invalid sequence
+            # TODO: return to previous state
             self.command_pub.publish(cmd_msg)
             return
 
         elif self.states[self.current_state] == "nav_to_STG3_wall":
             # Navigate to Stage 3 wall
+            # TODO: stop and increment state on bump switch toggle
             self.command_pub.publish(cmd_msg)
             return
 
         elif self.states[self.current_state] == "nav_to_STG3":
             # Navigate along wall to Stage 3
+            # TODO: stop and increment state on bump switch toggle
             self.command_pub.publish(cmd_msg)
             return
 
         elif self.states[self.current_state] == "align_to_STG3":
             # Final alignment and connection to Stage 3
+            # TODO: make adjustments to position and trigger stage 3
             self.command_pub.publish(cmd_msg)
             return
 
         elif self.states[self.current_state] == "perform_STG3":
             # Trigger Stage 3
+            # if entered sequence is equal to target sequence
+            # TODO: intrement state
+            # else if invalid sequence
+            # TODO: decrement state
             self.command_pub.publish(cmd_msg)
             return
 
@@ -217,7 +245,7 @@ class BrainStateMachine():
                 config["back_right_kd"],
             ]
         self.parameter_pub.publish(msg)
-        return
+        return config
 
     def brain_state_callback(self, brain_state):
         # Updates info dictionary of robot state information
@@ -232,7 +260,7 @@ class BrainStateMachine():
         #   yvel: float representing y velocity in mm/s
         #   ang_vel: float representing angular velocity in rad/s
         # Output:
-        #   tuple containing the four wheel velocities integers in um/s
+        #   tuple containing the four wheel velocities integers in mm/s
     def mix_wheel_velocities(self, x_vel, y_vel, ang_vel):
         # Convert linear and angular velocities to wheel velocities
 
@@ -253,3 +281,6 @@ class BrainStateMachine():
         bl_wvel = x_vel - y_vel + (lx_axis + ly_axis) * ang_vel
 
         return (fl_wvel, fr_wvel, bl_wvel, br_wvel)
+
+if __name__=="__main__":
+    node = BrainStateMachine()
