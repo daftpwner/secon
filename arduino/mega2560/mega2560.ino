@@ -25,8 +25,12 @@
 #define BR_ENC_A 18
 #define BR_ENC_B 4
 
-// PWM pins
-#define STG1_PWM 44
+// DC pins
+#define DC_Top 30
+#define DC_TL 31
+#define DC_BL 32
+#define DC_BR 33
+#define DC_TR 34
 
 // Analog pins
 #define ADC_TOP A0
@@ -142,8 +146,13 @@ void setup() {
     attachInterrupt(digitalPinToInterrupt(FR_ENC_A),FR_A,CHANGE);
     attachInterrupt(digitalPinToInterrupt(BL_ENC_A),BL_A,CHANGE);
     attachInterrupt(digitalPinToInterrupt(BR_ENC_A),BR_A,CHANGE);
-    
-    pinMode(STG1_PWM, OUTPUT);
+
+    // Initialize stage 1 pins
+    pinMode(DC_TOP, OUTPUT);
+    pinMode(DC_TL, OUTPUT);
+    pinMode(DC_BL, OUTPUT);
+    pinMode(DC_BR, OUTPUT);
+    pinMode(DC_TR, OUTPUT);
     pinMode(ADC_TOP, INPUT);
     pinMode(ADC_TL, INPUT);
     pinMode(ADC_BL, INPUT);
@@ -418,8 +427,12 @@ void update_motor_vel() {
 // Performs Stage 1
 void STG1() {
   
-    // DC Setup
-    analogWrite(STG1_PWM, 255);  // analogWrite value 255 = DC
+    // Initialize DC Inputs
+    digitalWrite(DC_TOP, HIGH);
+    digitalWrite(DC_TL, HIGH);
+    digitalWrite(DC_BL, HIGH);
+    digitalWrite(DC_BR, HIGH); 
+    digitalWrite(DC_TR, HIGH);
   
     // Timer interrupt setup
     //cli(); // Stop interrupts
@@ -478,13 +491,21 @@ void STG1() {
             break;
       }
       // set number of samples wanted for each pad
-      if (sample_count >= 1000){
+      if (sample_count >= 250){
         sample_count = 0;
         target_an_pin = target_an_pin + 1;
-        // reset input voltage to get initial transient for next pad
-        analogWrite(STG1_PWM, 0);  
+        // reset input voltages to get initial transient for next pad
+        digitalWrite(DC_TOP, LOW);
+        digitalWrite(DC_TL, LOW);
+        digitalWrite(DC_BL, LOW);
+        digitalWrite(DC_BR, LOW); 
+        digitalWrite(DC_TR, LOW); 
         delay(2000);
-        analogWrite(STG1_PWM, 255);
+        digitalWrite(DC_TOP, HIGH);
+        digitalWrite(DC_TL, HIGH);
+        digitalWrite(DC_BL, HIGH);
+        digitalWrite(DC_BR, HIGH); 
+        digitalWrite(DC_TR, HIGH);
       }
     }
 
@@ -511,8 +532,13 @@ void STG1() {
     //cli();
     //TIMSK2 |= (0 << OCIE2A);
     //sei();
-    
-    analogWrite(STG1_PWM, 0); //done    
+
+    // Done; Stop Inputs
+      digitalWrite(DC_TOP, LOW);
+      digitalWrite(DC_TL, LOW);
+      digitalWrite(DC_BL, LOW);
+      digitalWrite(DC_BR, LOW); 
+      digitalWrite(DC_TR, LOW);    
 
 }
 
