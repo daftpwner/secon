@@ -427,13 +427,6 @@ void update_motor_vel() {
 // Performs Stage 1
 void STG1() {
   
-    // Initialize DC Inputs
-    digitalWrite(DC_TOP, HIGH);
-    digitalWrite(DC_TL, HIGH);
-    digitalWrite(DC_BL, HIGH);
-    digitalWrite(DC_BR, HIGH); 
-    digitalWrite(DC_TR, HIGH);
-  
     // Timer interrupt setup
     //cli(); // Stop interrupts
     //TCCR2A = 0;  // set register to 0
@@ -449,12 +442,16 @@ void STG1() {
 
     // Samples DC peak values
     while (target_an_pin < 5){
-        delay(0.125); // Interval between samples
         if ((target_an_pin == 2) && (pad[0] >= 37) && (pad[1] >= 37) && (pad[0] <= 40) && (pad[1] <= 40)){
           target_an_pin = 0;
         }
         switch(target_an_pin) { 
           case 0:
+          // Initializes DC output for curent pad
+            if (sample_count == 0){
+             digitalWrite(DC_TOP, HIGH); 
+            }
+            delay(0.125); // Interval between samples
             target_value = analogRead(ADC_TOP);
             if (target_value >= pad[0]){
               pad[0] = target_value;
@@ -462,6 +459,11 @@ void STG1() {
             }
             break;   
           case 1:
+          // Initializes DC output for curent pad
+            if (sample_count == 0){
+               digitalWrite(DC_TL, HIGH); 
+            }
+            delay(0.125); // Interval between samples
             target_value = analogRead(ADC_TL);
             if (target_value >= pad[1]){
               pad[1] = target_value;
@@ -469,6 +471,11 @@ void STG1() {
             }
             break;  
           case 2:
+          // Initializes DC output for curent pad
+            if (sample_count == 0){
+               digitalWrite(DC_BL, HIGH); 
+            }
+            delay(0.125); // Interval between samples
             target_value = analogRead(ADC_BL);
             if (target_value >= pad[2]){
               pad[2] = target_value;
@@ -476,6 +483,11 @@ void STG1() {
             }
             break;      
           case 3:
+          // Initializes DC output for curent pad
+            if (sample_count == 0){
+               digitalWrite(DC_BR, HIGH); 
+            }
+            delay(0.125); // Interval between samples
             target_value = analogRead(ADC_BR);
             if (target_value >= pad[3]){
               pad[3] = target_value;
@@ -483,6 +495,11 @@ void STG1() {
             }
             break;        
           case 4:
+          // Initializes DC output for curent pad
+            if (sample_count == 0){
+               digitalWrite(DC_TR, HIGH); 
+            }
+            delay(0.125); // Interval between samples
             target_value = analogRead(ADC_TR);
             if (target_value >= pad[4]){
               pad[4] = target_value;
@@ -490,7 +507,7 @@ void STG1() {
             }
             break;
       }
-      // set number of samples wanted for each pad
+      // set number of samples wanted for each pad and reset when reached
       if (sample_count >= 250){
         sample_count = 0;
         target_an_pin = target_an_pin + 1;
@@ -501,11 +518,6 @@ void STG1() {
         digitalWrite(DC_BR, LOW); 
         digitalWrite(DC_TR, LOW); 
         delay(2000);
-        digitalWrite(DC_TOP, HIGH);
-        digitalWrite(DC_TL, HIGH);
-        digitalWrite(DC_BL, HIGH);
-        digitalWrite(DC_BR, HIGH); 
-        digitalWrite(DC_TR, HIGH);
       }
     }
 
@@ -532,14 +544,7 @@ void STG1() {
     //cli();
     //TIMSK2 |= (0 << OCIE2A);
     //sei();
-
-    // Done; Stop Inputs
-      digitalWrite(DC_TOP, LOW);
-      digitalWrite(DC_TL, LOW);
-      digitalWrite(DC_BL, LOW);
-      digitalWrite(DC_BR, LOW); 
-      digitalWrite(DC_TR, LOW);    
-
+    
 }
 
 /* // Stage 1 pin sampler
