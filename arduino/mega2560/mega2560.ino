@@ -59,6 +59,18 @@ volatile int fr_enc = 0;
 volatile int bl_enc = 0;
 volatile int br_enc = 0;
 
+// containers for rolling encoder velocity averages
+double fl_enc_vels[5] = { 0, 0, 0, 0, 0 };
+double fr_enc_vels[5] = { 0, 0, 0, 0, 0 };
+double bl_enc_vels[5] = { 0, 0, 0, 0, 0 };
+double br_enc_vels[5] = { 0, 0, 0, 0, 0 };
+
+// pointer to "next" index location in velocity arrays
+uint8_t fl_index = 0;
+uint8_t fr_index = 0;
+uint8_t bl_index = 0;
+uint8_t br_index = 0;
+
 // wheel velocities ( mm/s! not m/s! )
 double fl_vel = 0;  // mm/s! not m/s! 
 double fr_vel = 0;  // mm/s! not m/s! 
@@ -94,24 +106,24 @@ int STG_trigger = 0b00;
 // These are parameters that can be changed at runtime via ROS
 
 // Front Left wheel
-double fl_Kp = 0.54; // Proportional gain
-double fl_Ki = 7.0; // Integral gain
-double fl_Kd = 0.03; // Derivative gain
+double fl_Kp = 1.5; // Proportional gain 
+double fl_Ki = 6.0; // Integral gain 
+double fl_Kd = 0.1; // Derivative gain 
 
 // Front Right wheel
-double fr_Kp = 0.54; // Proportional gain
-double fr_Ki = 7.0; // Integral gain
-double fr_Kd = 0.03; // Derivative gain
+double fr_Kp = 1.5; // Proportional gain
+double fr_Ki = 6.0; // Integral gain
+double fr_Kd = 0.1; // Derivative gain
 
 // Back Left wheel
-double bl_Kp = 0.54; // Proportional gain
-double bl_Ki = 7.0; // Integral gain
-double bl_Kd = 0.03; // Derivative gain
+double bl_Kp = 1.5; // Proportional gain
+double bl_Ki = 6.0; // Integral gain
+double bl_Kd = 0.1; // Derivative gain
 
 // Back Right wheel
-double br_Kp = 0.54; // Proportional gain
-double br_Ki = 7.0; // Integral gain
-double br_Kd = 0.03; // Derivative gain
+double br_Kp = 1; // Proportional gain   MATLAB: 20.2083 ; 19.9151
+double br_Ki = 50; // Integral gain        MATLAB: 0.16344 ; 0.16938
+double br_Kd = 0.01; // Derivative gain     MATLAB: 40.0804 ; 0.00
 
 // Motor shield
 Adafruit_MotorShield AFMS = Adafruit_MotorShield(0x61);
@@ -129,7 +141,7 @@ PID BR_PID(&br_vel, &br_pwm, &cmd_br_vel, br_Kp, br_Ki, br_Kd, DIRECT);
 void setup() {
     
     // USB port setup
-    Serial.begin(9600);
+    Serial.begin(115200);
     
     // initilize encoder pins
     pinMode(FL_ENC_A,INPUT_PULLUP);
@@ -297,13 +309,10 @@ void loop() {
             
     }
     update_status(); // Send update string at about 10 Hz
-    delay(20);
+    delay(41);
     cmd_motors();
-    delay(20);
-    cmd_motors();
-    delay(20);
-    cmd_motors();
-    delay(20);
+    delay(50);
+
     // sleep for some amount of time
     // mainly to keep PID loops updated at
     // reasonable rate of about 50 Hz
@@ -342,7 +351,7 @@ void receive_str(){
         
         br_Kp = cmd_str.substring(55,61).toFloat();
         br_Ki = cmd_str.substring(61,67).toFloat();
-        br_Kd = cmd_str.substring(72,78).toFloat();
+        br_Kd = cmd_str.substring(67,73).toFloat();
         FL_PID.SetTunings(fl_Kp, fl_Ki, fl_Kd);
         FR_PID.SetTunings(fr_Kp, fr_Ki, fr_Kd);
         BL_PID.SetTunings(bl_Kp, bl_Ki, bl_Kd);
@@ -359,7 +368,7 @@ void cmd_motors() {
     BL_PID.Compute();
     BR_PID.Compute();
     // Front Left motor command
-    FL_mot->setSpeed((uint8_t) abs((int) fl_pwm));
+    FL_mot->setSpeed((uint8_t) abs((int) round(fl_pwm)));
     if (fl_pwm < 0){
         FL_mot->run(FORWARD);
     }
@@ -400,28 +409,56 @@ void update_motor_vel() {
   
     // CW is forward for right side, CCW for left
     // Time interval
+    static double del_time;
+    static int fl_,fr_,bl_,br_;
+    static double enc_per_sec_to_mm_per_sec = 1000*WHEEL_RAD*2.0*3.14/ENC_PER_REV;
     cur_time = millis();
-    int del_time = cur_time - prev_time;
-    // Front Left
-    // ( pulses ) / ( milliseconds / 1000000 ) * pulses per revolution * wheel radius
-    fl_vel = (fl_enc)*1000/((float) del_time)/ENC_PER_REV*WHEEL_RAD*2*3.14;
-    // Front Right
-    // ( pulses ) / ( milliseconds / 1000 ) * pulses per revolution * wheel radius
-    fr_vel = (fr_enc)*1000/((float) del_time)/ENC_PER_REV*WHEEL_RAD*2*3.14;
-  
-    // Front Left
-    // ( pulses ) / ( milliseconds / 1000 ) * pulses per revolution * wheel radius
-    bl_vel = (bl_enc)*1000/((float) del_time)/ENC_PER_REV*WHEEL_RAD*2*3.14;
-  
-    // Front Left
-    // ( pulses ) / ( milliseconds / 1000 ) * pulses per revolution * wheel radius
-    br_vel = (br_enc)*1000/((float) del_time)/ENC_PER_REV*WHEEL_RAD*2*3.14;
+    fl_ = fl_enc;
+    fr_ = fr_enc;
+    bl_ = bl_enc;
+    br_ = br_enc;
+    del_time = cur_time - prev_time;
+    
     // time set
     prev_time = cur_time;
     fl_enc = 0;
     fr_enc = 0;
     bl_enc = 0;
     br_enc = 0;
+    
+    // Front Left
+    // ( pulses ) / ( milliseconds / 1000000 ) * pulses per revolution * wheel radius
+    fl_enc_vels[fl_index] = fl_ / del_time * enc_per_sec_to_mm_per_sec;
+    fl_index = (fl_index+1) % 5;
+    fl_index = (fl_index+1) % 5;
+    fl_vel = 0;
+    for (int i = 0; i<5 ; i++){
+        fl_vel += fl_enc_vels[i]/5.0;
+    }
+    // Front Right
+    // ( pulses ) / ( milliseconds / 1000 ) * pulses per revolution * wheel radius
+    fr_enc_vels[fr_index] = fr_ / del_time * enc_per_sec_to_mm_per_sec;
+    fr_index = (fr_index+1) % 5;
+    fr_vel = 0;
+    for (int i = 0; i<5 ; i++){
+        fr_vel += fr_enc_vels[i]/5.0;
+    }
+    // Back Left
+    // ( pulses ) / ( milliseconds / 1000 ) * pulses per revolution * wheel radius
+    bl_enc_vels[bl_index] = bl_ / del_time * enc_per_sec_to_mm_per_sec;
+    bl_index = (bl_index+1) % 5;
+    bl_vel = 0;
+    for (int i = 0; i<5 ; i++){
+        bl_vel += bl_enc_vels[i]/5.0;
+    }
+    // Front Left
+    // ( pulses ) / ( milliseconds / 1000 ) * pulses per revolution * wheel radius * 2pi
+    br_enc_vels[fl_index] = br_ / del_time * enc_per_sec_to_mm_per_sec;
+    br_index = (br_index+1) % 5;
+    br_vel = 0;
+    for (int i = 0; i<5 ; i++){
+        br_vel += br_enc_vels[i]/5.0;
+    }
 }
 
 // Performs Stage 1
@@ -443,6 +480,7 @@ void STG1() {
     // Samples DC peak values
     while (target_an_pin < 5){
         if ((target_an_pin == 2) && (pad[0] >= 37) && (pad[1] >= 37) && (pad[0] <= 40) && (pad[1] <= 40)){
+          // Send an update to ROS
           target_an_pin = 0;
         }
         switch(target_an_pin) { 

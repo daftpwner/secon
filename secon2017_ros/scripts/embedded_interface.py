@@ -55,7 +55,7 @@ class EmbeddedInterface():
         self.brain_port = rospy.get_param(
             "~brain_serial_port", "/dev/arduinos/brain")
         self.brain_baud = rospy.get_param(
-            "~brain_baud_rate", "9600")
+            "~brain_baud_rate", "115200")
         self.pinky_port = rospy.get_param(
             "~pinky_serial_port", "/dev/arduinos/pinky")
         # Set callbacks
