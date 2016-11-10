@@ -26,7 +26,7 @@
 #define BR_ENC_B 4
 
 // DC pins
-#define DC_Top 30
+#define DC_TOP 30
 #define DC_TL 31
 #define DC_BL 32
 #define DC_BR 33
