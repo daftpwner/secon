@@ -12,10 +12,14 @@
 #include <Adafruit_MotorShield.h>
 //#include "utility/Adafruit_PWMServoDriver.h"
 #include <PID_v1.h>
+#include <Servo.h>
 
 // Pin definitions
 // NOTE: pins 0 and 1 reserved for USB TX/RX
 // NOTE: pins 9 and 10 reserved for Stage 3 Servos
+Servo servo1; // gripper
+Servo servo2; // rotation
+
 // Encoder pins
 #define FL_ENC_A 2
 #define FL_ENC_B 52
@@ -98,6 +102,8 @@ int sample_count = 0; // Number of samples taken
 char seq[] = "00000";  // decoded sequence
 char cmd_rot[] = "00000";  // commanded rotation sequence
 char res_rot[] = "00000";  // resultant rotation sequence
+int rotate = 0; // number of rotations
+int turn = 1; // rotation direction: 0 = clockwise; 1 = counterclockwise
 
 // Command variables
 String cmd_str;
@@ -171,6 +177,10 @@ void setup() {
     pinMode(ADC_BL, INPUT);
     pinMode(ADC_BR, INPUT);
     pinMode(ADC_TR, INPUT);
+
+    // Initialize stage 3 servos
+    servo1.attach(9);
+    servo2.attach(10);
 
     // Start motor shield
     AFMS.begin();
@@ -490,6 +500,7 @@ void STG1() {
 
     // Samples DC peak values
     while (target_an_pin < 5){
+      // Check for open circuit
         if ((target_an_pin == 2) && (pad[0] >= 37) && (pad[1] >= 37) && (pad[0] <= 40) && (pad[1] <= 40)){
           // Send an update to ROS
           target_an_pin = 0;
@@ -627,6 +638,36 @@ ISR (TIMER2_COMPA_vect) {
 // Performs Stage 3
 void STG3(){
   
+  // grip the knob
+  servo1.write(55);
+  delay(2000);
+  // initiate rotation sequences
+  for (int m = 0; m < 5; m = m + 1){
+    // set number of rotations for current sequence
+    rotate = pad[m];
+    // alternate rotation direction
+    if (turn == 0){
+      turn == 1;
+    }
+    else if (turn == 1){
+      turn == 0;
+    }
+    while (rotate < 0){
+      // check rotation direction
+      if (turn == 0){
+        servo2.write(96);
+        delay(2382); //360 degree clockwise delay
+        servo2.write(92); // pause rotation
+        delay(600);
+      }
+      else{
+        servo2.write(88);
+        delay(2790); //360 degree counterclockwise delay
+        servo2.write(92); // pause rotation
+        delay(600);
+      }
+    }
+  }
 }
 
 // Check and send statuses including Stage 1 connection validation
