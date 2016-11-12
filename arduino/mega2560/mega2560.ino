@@ -638,7 +638,7 @@ ISR (TIMER2_COMPA_vect) {
 // Performs Stage 3
 void STG3(){
   
-  // grip the knob
+   // grip the knob
   servo1.write(55);
   delay(2000);
   // initiate rotation sequences
@@ -647,26 +647,27 @@ void STG3(){
     rotate = pad[m];
     // alternate rotation direction
     if (turn == 0){
-      turn == 1;
+      turn = 1;
     }
     else if (turn == 1){
-      turn == 0;
+      turn = 0;
     }
     while (rotate > 0){
       // check rotation direction
       if (turn == 0){
-        servo2.write(96);
-        delay(2382); //360 degree clockwise delay
+        servo2.write(88);
+        delay(2790); //360 degree clockwise delay
         servo2.write(92); // pause rotation
         delay(600);
       }
       else{
-        servo2.write(88);
-        delay(2790); //360 degree counterclockwise delay
+        servo2.write(96);
+        delay(2382); //360 degree counterclockwise delay
         servo2.write(92); // pause rotation
         delay(600);
       }
-      rotate = rotate - 1; // decrement one rotation sequence
+        // decrement one rotation sequence
+        rotate = rotate - 1;
     }
   }
 }
