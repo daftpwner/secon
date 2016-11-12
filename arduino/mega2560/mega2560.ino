@@ -15,6 +15,7 @@
 
 // Pin definitions
 // NOTE: pins 0 and 1 reserved for USB TX/RX
+// NOTE: pins 9 and 10 reserved for Stage 3 Servos
 // Encoder pins
 #define FL_ENC_A 2
 #define FL_ENC_B 52
@@ -121,9 +122,9 @@ double bl_Ki = 6.0; // Integral gain
 double bl_Kd = 0.1; // Derivative gain
 
 // Back Right wheel
-double br_Kp = 1; // Proportional gain   MATLAB: 20.2083 ; 19.9151
-double br_Ki = 50; // Integral gain        MATLAB: 0.16344 ; 0.16938
-double br_Kd = 0.01; // Derivative gain     MATLAB: 40.0804 ; 0.00
+double br_Kp = 1; // Proportional gain
+double br_Ki = 50; // Integral gain
+double br_Kd = 0.01; // Derivative gain
 
 // Motor shield
 Adafruit_MotorShield AFMS = Adafruit_MotorShield(0x61);
@@ -196,6 +197,23 @@ void setup() {
     BL_PID.SetMode(AUTOMATIC);
     BR_PID.SetMode(AUTOMATIC);
 
+    // PID Timer Interrupt
+    cli(); // disable interrupts
+    
+    //set timer3 interrupt at 20Hz
+    TCCR3A = 0;// set entire TCCR3A register to 0
+    TCCR3B = 0;// same for TCCR3B
+    TCNT3  = 0;//initialize counter value to 0
+    // set compare match register for 8khz increments
+    OCR3A = 3125;// = (16*10^6) / (256*20) - 1 (must be <65535)
+    // Set CTC mode
+    //TCCR3A |= (1 << WGM31);
+    // Set CS21 bit for 256 prescaler
+    TCCR3B |= (1 << CS32) | (1 << WGM32);   
+    // enable timer compare interrupt
+    TIMSK3 |= (1 << OCIE3A);
+
+    sei();//allow interrupts
 }
 
 // Handles Front Left motor interrupt
@@ -286,10 +304,8 @@ void BR_A() {
 }
 
 void loop() {
-  
-    cmd_motors();
-    receive_str();
-    
+
+    receive_str();    
     switch(STG_trigger){
         
         case (0b00):  // Do nothing
@@ -309,13 +325,8 @@ void loop() {
             
     }
     update_status(); // Send update string at about 10 Hz
-    delay(41);
-    cmd_motors();
-    delay(50);
+    delay(90);
 
-    // sleep for some amount of time
-    // mainly to keep PID loops updated at
-    // reasonable rate of about 50 Hz
 }
 
 // receive and process command/parameter-reassignment strings
@@ -635,5 +646,13 @@ void update_status(){
     Serial.print("rt:");
     Serial.print(res_rot);
     Serial.print('\n');
+}
+
+// PID Timer 3 Interrupt
+ISR (TIMER3_COMPA_vect) {
+    cli();
+    // Update velocities and PID
+    cmd_motors();
+    sei();
 }
 
