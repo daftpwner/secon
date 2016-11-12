@@ -652,7 +652,7 @@ void STG3(){
     else if (turn == 1){
       turn == 0;
     }
-    while (rotate < 0){
+    while (rotate > 0){
       // check rotation direction
       if (turn == 0){
         servo2.write(96);
