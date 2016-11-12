@@ -154,11 +154,12 @@ class EmbeddedInterface():
 
         self.integrate_odometry()
         self.brain_state_pub.publish(self.ros_msg)
+        self.prev_msg = self.ros_msg
+
         return
 
     def integrate_odometry(self):
 
-        self.prev_msg = self.ros_msg
         return
 
 

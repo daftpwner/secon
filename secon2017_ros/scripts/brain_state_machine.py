@@ -50,6 +50,15 @@ class BrainStateMachine():
 
                 "end"
             ]
+        # Dictionary of switch identities
+        self.switches = \
+        {
+            "Start": 0,
+            "Stage_1_wall": 1,
+            "Stage_1_alignment": 2,
+            "Stage_3_wall": 3,
+            "Stage_3_alignment": 4
+        }
 
         # Load parameter defaults here
         self.wheel_coords = \
@@ -112,9 +121,9 @@ class BrainStateMachine():
         # state.switches: list of boolean switch states
         # 0: Start Switch
         # 1: Stage 1 Wall Switch
-        # 2: Stage 1 Contact Switch
+        # 2: Stage 1 Alignment Switch
         # 3: Stage 3 Wall Switch
-        # 4: Stage 3 Contact Switch
+        # 4: Stage 3 Alignment Switch
         # 5:
         # state.wheel_vels: list of wheel velocities
         # 0: Front Left wheel
@@ -128,14 +137,15 @@ class BrainStateMachine():
         # Sends commands based on current state
         if self.states[self.current_state] == "wait_for_start":
             # wait for start button to be pressed
-            if len(state.switches) > 0 and state.switches[0]:
+            if len(state.switches) > 0 and\
+                    state.switches[self.switches['Start']]:
+
                 self.current_state += 1
-                self.command_pub.publish(cmd_msg)
             return
 
         elif self.states[self.current_state] == "start":
             # Initialize and start Pinky and wait for clearance
-            self.command_pub.publish(cmd_msg)
+            # self.command_pub.publish(cmd_msg)
             time.sleep(5)
             self.current_state += 1
             return
@@ -144,72 +154,121 @@ class BrainStateMachine():
             # Navigate to the wall
 
             # Bump switch hits the wall
-            if len(state.switches) > 1 and state.switches[1]:
+            if len(state.switches) > 1 and\
+                    state.switches[self.switches['Stage_1_wall']]:
+
                 self.current_state += 1
+                # x: 0 mm/s y: 0 mm/s z: 0 rad/s
+                cmd_msg.wheel_vels = self.mix_wheel_velocities(0, 0, 0)
                 self.command_pub.publish(cmd_msg)
             else:
+                # Stop
                 # Move forward
-                # TODO: set forward speed here
+                # x: 50 mm/s y: 10 mm/s z: 0 rad/s
+                cmd_msg.wheel_vels = self.mix_wheel_velocities(50, 10, 0)
                 self.command_pub.publish(cmd_msg)
             return
 
         elif self.states[self.current_state] == "nav_to_STG1":
             # Navigate along wall to Stage 1
             # Bump switch hits stage 1
-            if len(state.switches) > 2 and state.switches[2]:
+            if len(state.switches) > 2 and\
+                    state.switches[self.switches['Stage_1_alignment']]:
+
                 self.current_state += 1
+                # Stop
+                # x: 0 mm/s y: 0 mm/s z: 0 rad/s
+                cmd_msg.wheel_vels = self.mix_wheel_velocities(0, 0, 0)
                 self.command_pub.publish(cmd_msg)
-            # Keep sliding along wall
-            # TODO: set sideways speed here
-            self.command_pub.publish(cmd_msg)
+            else:
+                # Keep sliding along wall
+                # Slide along wall
+                # x: 10 mm/s y: -20 mm/s z: 0 rad/s
+                cmd_msg.wheel_vels = self.mix_wheel_velocities(10, -20, 0)
+                self.command_pub.publish(cmd_msg)
             return
 
         elif self.states[self.current_state] == "align_to_STG1":
             # Final alignment and connection to Stage 1
             # TODO: make adjustments to position and trigger stage 1
-            self.command_pub.publish(cmd_msg)
+            # self.command_pub.publish(cmd_msg)
             return
 
         elif self.states[self.current_state] == "perform_STG1":
             # Trigger Stage 1
-            # if valid sequence
-            # TODO: proceed to next state
-            # TODO: display sequence
-            # else if invalid sequence
-            # TODO: return to previous state
-            self.command_pub.publish(cmd_msg)
+            # Invalid sequence
+            if any(['1', '2', '3', '4', '5'] not in state.sequence) and\
+                    not state.sequence != "00000":
+
+                self.current_state -= 1
+
+            # No sequence yet
+            elif state.sequence == "00000":
+                return
+
+            # Correct sequence
+            else:
+                self.current_state += 1
+
             return
 
         elif self.states[self.current_state] == "nav_to_STG3_wall":
             # Navigate to Stage 3 wall
-            # TODO: stop and increment state on bump switch toggle
-            self.command_pub.publish(cmd_msg)
+            # Hit wall
+            if len(state.switches) > 3 and\
+                    state.switches[self.switches['Stage_3_wall']]:
+
+                self.current_state += 1
+                # Stop
+                # x: 0 mm/s y: 0 mm/s z: 0 rad/s
+                cmd_msg.wheel_vels = self.mix_wheel_velocities(0, 0, 0)
+                self.command_pub.publish(cmd_msg)
             return
 
         elif self.states[self.current_state] == "nav_to_STG3":
             # Navigate along wall to Stage 3
-            # TODO: stop and increment state on bump switch toggle
-            self.command_pub.publish(cmd_msg)
+            # Aligned
+            if len(state.switches) > 4 and\
+                    state.switches[self.switches['Stage_3_alignment']]:
+
+                self.current_state += 1
+                # Stop
+                # x: 0 mm/s y: 0 mm/s z: 0 rad/s
+                cmd_msg.wheel_vels = self.mix_wheel_velocities(0, 0, 0)
+                self.command_pub.publish(cmd_msg)
+            else:
+                # Slide along wall
+                # x: 10 mm/s y: 30 mm/s z: 0 rad/s
+                cmd_msg.wheel_vels = self.mix_wheel_velocities(10, 30, 0)
+                self.command_pub.publish(cmd_msg)
             return
 
         elif self.states[self.current_state] == "align_to_STG3":
             # Final alignment and connection to Stage 3
             # TODO: make adjustments to position and trigger stage 3
-            self.command_pub.publish(cmd_msg)
+            # self.command_pub.publish(cmd_msg)
             return
 
         elif self.states[self.current_state] == "perform_STG3":
             # Trigger Stage 3
-            # if entered sequence is equal to target sequence
-            # TODO: intrement state
-            # else if invalid sequence
-            # TODO: decrement state
-            self.command_pub.publish(cmd_msg)
-            return
+            # Invalid sequence
+            if any(['1', '2', '3', '4', '5'] not in state.rotation_sequence) and\
+                    not state.sequence != "00000":
+
+                self.current_state -= 1
+                return
+
+            # No sequence yet
+            elif state.sequence == "00000":
+                return
+
+            # Correct sequence
+            else:
+                self.current_state += 1
+                return
 
         elif self.states[self.current_state] == "end":
             # Finished, cease operations
-            self.command_pub.publish(cmd_msg)
             return
 
     def reconfigure_callback(self, config, level):
@@ -280,7 +339,7 @@ class BrainStateMachine():
         br_wvel = x_vel + y_vel - (lx_axis + ly_axis) * ang_vel
         bl_wvel = x_vel - y_vel + (lx_axis + ly_axis) * ang_vel
 
-        return (fl_wvel, fr_wvel, bl_wvel, br_wvel)
+        return [fl_wvel, fr_wvel, bl_wvel, br_wvel]
 
 if __name__=="__main__":
     node = BrainStateMachine()
