@@ -666,6 +666,7 @@ void STG3(){
         servo2.write(92); // pause rotation
         delay(600);
       }
+      rotate = rotate - 1; // decrement one rotation sequence
     }
   }
 }
