@@ -104,6 +104,8 @@ char cmd_rot[] = "00000";  // commanded rotation sequence
 char res_rot[] = "00000";  // resultant rotation sequence
 int rotate = 0; // number of rotations
 int turn = 1; // rotation direction: 0 = clockwise; 1 = counterclockwise
+unsigned long timer; // stage 3 rotation reference
+unsigned long time_check; // stage 3 rotation duration
 
 // Command variables
 String cmd_str;
@@ -637,7 +639,46 @@ ISR (TIMER2_COMPA_vect) {
 
 // Performs Stage 3
 void STG3(){
-  
+
+  // grip the knob
+  servo1.write(55);
+  delay(2000);
+  // initiate rotation sequences
+  for (int m = 0; m < 5; m = m + 1){
+    // set number of rotations for current sequence
+    rotate = pad[m];
+    // alternate rotation direction
+    if (turn == 0){
+      turn = 1;
+    }
+    else if (turn == 1){
+      turn = 0;
+    }
+    while (rotate > 0){
+      // intialize timer
+      timer = millis();
+      time_check = millis();
+      // check rotation direction
+      if (turn == 0){
+        // 360 degree counterclockwise rotation
+        while ((time_check -  timer) < 2790){
+          time_check = millis(); // time since start of rotation
+          servo2.write(88);
+        }
+      }
+      else{
+        // 360 degree clockwise rotation
+        while ((time_check - timer) < 2383){
+          time_check = millis(); // time since start of rotation
+          servo2.write(96);
+        }
+      }
+        servo2.write(92); // pause rotation
+        rotate = rotate - 1; // decrement one rotation sequence
+    }
+  }
+
+  /* working code using delays
    // grip the knob
   servo1.write(55);
   delay(2000);
@@ -670,6 +711,8 @@ void STG3(){
         rotate = rotate - 1;
     }
   }
+  */
+  
 }
 
 // Check and send statuses including Stage 1 connection validation
