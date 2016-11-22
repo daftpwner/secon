@@ -42,7 +42,12 @@ Servo servo2; // rotation
 #define ADC_TL A1
 #define ADC_BL A2
 #define ADC_BR A3
-#define ADC_TR A4
+#define ADC_TR A7
+
+// STG1
+#define SAMPLES 250
+#define SAMPLE_MS_INTERVAL 1
+int samples[SAMPLES] = {0};
 
 // Hardware parameters
 // These are parameters endemic to the hardware and
@@ -97,7 +102,7 @@ double br_pwm = 0;
 // Stage variables
 int target_an_pin = 0;  // Case expression for sampling
 int target_value = 0;  // Sampling assignment
-int pad[5] = {0}; // Five copper pads
+int pad[5] = {1,1,0,0,0}; // Five copper pads
 int sample_count = 0; // Number of samples taken
 char seq[] = "00000";  // decoded sequence
 char cmd_rot[] = "00000";  // commanded rotation sequence
@@ -130,11 +135,11 @@ double bl_Ki = 6.0; // Integral gain
 double bl_Kd = 0.1; // Derivative gain
 
 // Back Right wheel
-double br_Kp = 1; // Proportional gain
-double br_Ki = 50; // Integral gain
-double br_Kd = 0.01; // Derivative gain
+double br_Kp = 1.5; // 1 Proportional gain
+double br_Ki = 6.0; // 50 Integral gain
+double br_Kd = 0.1; // 0.01 Derivative gain
 
-// Motor shield
+// Drive Motor shield
 Adafruit_MotorShield AFMS = Adafruit_MotorShield(0x61);
 Adafruit_DCMotor *FL_mot = AFMS.getMotor(1);
 Adafruit_DCMotor *FR_mot = AFMS.getMotor(2);
@@ -147,8 +152,13 @@ PID FR_PID(&fr_vel, &fr_pwm, &cmd_fr_vel, fr_Kp, fr_Ki, fr_Kd, DIRECT);
 PID BL_PID(&bl_vel, &bl_pwm, &cmd_bl_vel, bl_Kp, bl_Ki, bl_Kd, DIRECT);
 PID BR_PID(&br_vel, &br_pwm, &cmd_br_vel, br_Kp, br_Ki, br_Kd, DIRECT);
 
+// Stage arm motor shield
+Adafruit_MotorShield STG_MS = Adafruit_MotorShield(0x60);
+
+Adafruit_StepperMotor *STG1_motor = STG_MS.getStepper(200, 1);
+Adafruit_StepperMotor *STG3_motor = STG_MS.getStepper(200, 2);
+
 void setup() {
-    
     // USB port setup
     Serial.begin(115200);
     
@@ -179,23 +189,28 @@ void setup() {
     pinMode(ADC_BL, INPUT);
     pinMode(ADC_BR, INPUT);
     pinMode(ADC_TR, INPUT);
-
-    // Initialize stage 3 servos
-    servo1.attach(9);
-    servo2.attach(10);
-
+    
     // Start motor shield
     AFMS.begin();
-  
+    STG_MS.begin();
+
+    // Initialize stage 3 servos
+    servo1.attach(10);
+    servo2.attach(9);
+    
+    // Stop the motors
+    servo2.write(90);
+    servo1.write(0);
+    
     // Initialize motors to zero movement
     FL_mot->setSpeed(0);
     FR_mot->setSpeed(0);
     BL_mot->setSpeed(0);
     BR_mot->setSpeed(0);
-    FL_mot->run(RELEASE);
-    FR_mot->run(RELEASE);
-    BL_mot->run(RELEASE);
-    BR_mot->run(RELEASE);
+    FL_mot->run(FORWARD);
+    FR_mot->run(FORWARD);
+    BL_mot->run(FORWARD);
+    BR_mot->run(FORWARD);
   
     // PID range set
     FL_PID.SetOutputLimits(-255,255);
@@ -208,24 +223,7 @@ void setup() {
     FR_PID.SetMode(AUTOMATIC);
     BL_PID.SetMode(AUTOMATIC);
     BR_PID.SetMode(AUTOMATIC);
-
-    // PID Timer Interrupt
-    cli(); // disable interrupts
     
-    //set timer3 interrupt at 20Hz
-    TCCR3A = 0;// set entire TCCR3A register to 0
-    TCCR3B = 0;// same for TCCR3B
-    TCNT3  = 0;//initialize counter value to 0
-    // set compare match register for 8khz increments
-    OCR3A = 3125;// = (16*10^6) / (256*20) - 1 (must be <65535)
-    // Set CTC mode
-    //TCCR3A |= (1 << WGM31);
-    // Set CS21 bit for 256 prescaler
-    TCCR3B |= (1 << CS32) | (1 << WGM32);   
-    // enable timer compare interrupt
-    TIMSK3 |= (1 << OCIE3A);
-
-    sei();//allow interrupts
 }
 
 // Handles Front Left motor interrupt
@@ -316,7 +314,6 @@ void BR_A() {
 }
 
 void loop() {
-
     receive_str();    
     switch(STG_trigger){
         
@@ -337,7 +334,16 @@ void loop() {
             
     }
     update_status(); // Send update string at about 10 Hz
-    delay(90);
+    delay(10);
+    cmd_motors();
+    delay(20);
+    cmd_motors();
+    delay(20);
+    cmd_motors();
+    delay(20);
+    cmd_motors();
+    delay(20);
+    
 
 }
 
@@ -357,7 +363,7 @@ void receive_str(){
         cmd_fr_vel = cmd_str.substring(7,12).toFloat();
         cmd_bl_vel = cmd_str.substring(13,18).toFloat();
         cmd_br_vel = cmd_str.substring(19,24).toFloat();
-        STG_trigger = (int)(cmd_str.substring(27).toInt()<<1) | cmd_str.substring(25).toInt();
+        STG_trigger = (int)(cmd_str.substring(25).toInt()<<1) | cmd_str.substring(27).toInt();
     // parameter string
     }else{
         fl_Kp = cmd_str.substring(1,7).toFloat();
@@ -390,6 +396,7 @@ void cmd_motors() {
     FR_PID.Compute();
     BL_PID.Compute();
     BR_PID.Compute();
+    
     // Front Left motor command
     FL_mot->setSpeed((uint8_t) abs((int) round(fl_pwm)));
     if (fl_pwm < 0){
@@ -425,6 +432,7 @@ void cmd_motors() {
     else{
         BR_mot->run(FORWARD);
     }
+    
 }
 
 // reads encoder values and updates motor velocity ( in mm/s! )
@@ -476,7 +484,7 @@ void update_motor_vel() {
     }
     // Front Left
     // ( pulses ) / ( milliseconds / 1000 ) * pulses per revolution * wheel radius * 2pi
-    br_enc_vels[fl_index] = br_ / del_time * enc_per_sec_to_mm_per_sec;
+    br_enc_vels[br_index] = br_ / del_time * enc_per_sec_to_mm_per_sec;
     br_index = (br_index+1) % 5;
     br_vel = 0;
     for (int i = 0; i<5 ; i++){
@@ -484,26 +492,44 @@ void update_motor_vel() {
     }
 }
 
+// Deploy Stage 1 arm
+void deploy_STG1() {
+
+    STG1_motor->step(156,BACKWARD,MICROSTEP);
+    delay(200);
+}
+
+// Retract Stage 1 arm
+void retract_STG1() {
+
+  STG1_motor->step(156,FORWARD,MICROSTEP);
+}
+
+
+// Deploy Stage 3 arm
+void deploy_STG3() {
+
+    STG3_motor->step(140,FORWARD,MICROSTEP);
+}
+
+// Retract Stage 3 arm
+void retract_STG3() {
+
+  STG3_motor->step(140,BACKWARD,MICROSTEP);
+}
+
+
 // Performs Stage 1
 void STG1() {
-  
-    // Timer interrupt setup
-    //cli(); // Stop interrupts
-    //TCCR2A = 0;  // set register to 0
-    //TCCR2B = 0;  // set register to 0
-    //TCNT2 = 0;   // set counter to 0
-  
-    // compare match register set for 8kHz increments
-    //OCR2A = 249; // = (16e10) / (8000*8) - 1
-    //TCCR2A |= (1 << WGM21);  // CTC mode
-    //TCCR2B |= (1 << CS21);  // CS21 bit for 8 prescaler
-    //TIMSK2 |= (1 << OCIE2A); // enable timer compare interrupt
-    //sei(); // resume interrupts
-
+    target_an_pin = 0;
+    pad[5] = {0};
+    deploy_STG1();
+    Serial.println("Begin STG1");
     // Samples DC peak values
     while (target_an_pin < 5){
       // Check for open circuit
         if ((target_an_pin == 2) && (pad[0] >= 37) && (pad[1] >= 37) && (pad[0] <= 40) && (pad[1] <= 40)){
+          Serial.println("OPEN CIRCUIT");
           // Send an update to ROS
           target_an_pin = 0;
         }
@@ -513,64 +539,76 @@ void STG1() {
             if (sample_count == 0){
              digitalWrite(DC_TOP, HIGH); 
             }
-            delay(0.125); // Interval between samples
+            delay(SAMPLE_MS_INTERVAL); // Interval between samples
             target_value = analogRead(ADC_TOP);
             if (target_value >= pad[0]){
               pad[0] = target_value;
-              sample_count = sample_count + 1;
             }
+            samples[sample_count] = target_value;
+            sample_count++;
+            
             break;   
           case 1:
           // Initializes DC output for curent pad
             if (sample_count == 0){
                digitalWrite(DC_TL, HIGH); 
             }
-            delay(0.125); // Interval between samples
+            delay(SAMPLE_MS_INTERVAL); // Interval between samples
             target_value = analogRead(ADC_TL);
             if (target_value >= pad[1]){
               pad[1] = target_value;
-              sample_count = sample_count + 1;
             }
+            samples[sample_count] = target_value;
+            sample_count++;
+            
             break;  
           case 2:
           // Initializes DC output for curent pad
             if (sample_count == 0){
                digitalWrite(DC_BL, HIGH); 
             }
-            delay(0.125); // Interval between samples
+            delay(SAMPLE_MS_INTERVAL); // Interval between samples
             target_value = analogRead(ADC_BL);
             if (target_value >= pad[2]){
               pad[2] = target_value;
-              sample_count = sample_count + 1;
             }
+            samples[sample_count] = target_value;
+            sample_count++;
+            
             break;      
           case 3:
           // Initializes DC output for curent pad
             if (sample_count == 0){
                digitalWrite(DC_BR, HIGH); 
             }
-            delay(0.125); // Interval between samples
+            delay(SAMPLE_MS_INTERVAL); // Interval between samples
             target_value = analogRead(ADC_BR);
             if (target_value >= pad[3]){
               pad[3] = target_value;
-              sample_count = sample_count + 1;
             }
+            samples[sample_count] = target_value;
+            sample_count++;
+            
             break;        
           case 4:
           // Initializes DC output for curent pad
             if (sample_count == 0){
                digitalWrite(DC_TR, HIGH); 
             }
-            delay(0.125); // Interval between samples
+            delay(SAMPLE_MS_INTERVAL); // Interval between samples
             target_value = analogRead(ADC_TR);
             if (target_value >= pad[4]){
               pad[4] = target_value;
-              sample_count = sample_count + 1;
             }
+            samples[sample_count] = target_value;
+            sample_count++;
+            
             break;
       }
       // set number of samples wanted for each pad and reset when reached
-      if (sample_count >= 250){
+      if (sample_count >= SAMPLES){
+        // Print samples
+        print_samples();
         sample_count = 0;
         target_an_pin = target_an_pin + 1;
         // reset input voltages to get initial transient for next pad
@@ -578,105 +616,88 @@ void STG1() {
         digitalWrite(DC_TL, LOW);
         digitalWrite(DC_BL, LOW);
         digitalWrite(DC_BR, LOW); 
-        digitalWrite(DC_TR, LOW); 
+        digitalWrite(DC_TR, LOW);
         delay(2000);
       }
     }
 
     // Final pad assigments
-    for (int m = 0; m < 5; m = m + 1){
+    for (int m = 0; m < 5; m++){
+      Serial.print("PAD: ");
+      Serial.println(m);
+      Serial.println(pad[m]);
       if ((pad[m] >= 0) && (pad[m] <= 10)){
         pad[m] = 1; //wire
+        seq[m] = '1';
       }
       else if ((pad[m] >= 34) && (pad[m] <= 36)){
         pad[m] = 2; //resistor
+        seq[m] = '2';
       }
       else if ((pad[m] >= 75) && (pad[m] <= 95)){
         pad[m] = 3; //capacitor
+        seq[m] = '3';
       }
       else if ((pad[m] >= 20) && (pad[m] <= 26)){
         pad[m] = 4; //inductor
+        seq[m] = '4';
       }
       else if ((pad[m] >= 37) && (pad[m] <= 40)){
         pad[m] = 5; //diode
+        seq[m] = '5';
       }
     }
-
-    // disable timer interrupt
-    //cli();
-    //TIMSK2 |= (0 << OCIE2A);
-    //sei();
-    
+    Serial.println(seq);
+    retract_STG1();
+    STG_trigger = 0;
 }
 
-/* // Stage 1 pin sampler
-ISR (TIMER2_COMPA_vect) {
-  
-    // sample the pin and add to data range
-    switch(target_an_pin) { 
-    
-        case 0:
-            target_value = analogRead(ADC_TOP);
-            break;
-            
-        case 1:
-            target_value = analogRead(ADC_TL);
-            break;
-            
-        case 2:
-            target_value = analogRead(ADC_BL);
-            break;
-               
-        case 3:
-            target_value = analogRead(ADC_BR);
-            break; 
-                 
-        case 4:
-            target_value = analogRead(ADC_TR);
-            break;
-    }
-}*/
 
 // Performs Stage 3
 void STG3(){
 
-  // grip the knob
-  servo1.write(55);
-  delay(2000);
-  // initiate rotation sequences
-  for (int m = 0; m < 5; m = m + 1){
-    // set number of rotations for current sequence
-    rotate = pad[m];
-    // alternate rotation direction
-    if (turn == 0){
-      turn = 1;
-    }
-    else if (turn == 1){
-      turn = 0;
-    }
-    while (rotate > 0){
-      // intialize timer
-      timer = millis();
-      time_check = millis();
-      // check rotation direction
-      if (turn == 0){
-        // 360 degree counterclockwise rotation
-        while ((time_check -  timer) < 2790){
-          time_check = millis(); // time since start of rotation
-          servo2.write(88);
+    deploy_STG3();
+    Serial.println("Begin Stage 3");
+    // grip the knob
+    servo1.write(80);
+    delay(2000);
+    // initiate rotation sequences
+    for (int m = 0; m < 5; m = m + 1){
+        // set number of rotations for current sequence
+        rotate = pad[m];
+        // alternate rotation direction
+        if (turn == 0){
+            turn = 1;
         }
-      }
-      else{
-        // 360 degree clockwise rotation
-        while ((time_check - timer) < 2383){
-          time_check = millis(); // time since start of rotation
-          servo2.write(96);
+        else if (turn == 1){
+            turn = 0;
         }
-      }
-        servo2.write(92); // pause rotation
-        rotate = rotate - 1; // decrement one rotation sequence
+        while (rotate > 0){
+            // intialize timer
+            timer = millis();
+            time_check = millis();
+            // check rotation direction
+            if (turn == 0){
+                // 360 degree counterclockwise rotation
+                while ((time_check -  timer) < 6000){
+                    time_check = millis(); // time since start of rotation
+                    servo2.write(93);
+                }
+            }
+            else{
+                // 360 degree clockwise rotation
+                while ((time_check - timer) < 6000){
+                    time_check = millis(); // time since start of rotation
+                    servo2.write(87);
+                }
+            }
+            servo2.write(90); // pause rotation
+            rotate = rotate - 1; // decrement one rotation sequence
+        }
     }
-  }
+    servo1.write(0);
+    retract_STG3();
+    STG_trigger = 0;
 
   /* working code using delays
    // grip the knob
@@ -734,11 +755,12 @@ void update_status(){
     Serial.print('\n');
 }
 
-// PID Timer 3 Interrupt
-ISR (TIMER3_COMPA_vect) {
-    cli();
-    // Update velocities and PID
-    cmd_motors();
-    sei();
+void print_samples(){
+    Serial.print(target_an_pin);
+    for(int i = 0; i<SAMPLES; i++){
+       Serial.print(", ");
+       Serial.print(samples[i]);
+    }
+    Serial.println();
 }
 
