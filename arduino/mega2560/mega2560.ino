@@ -112,8 +112,10 @@ double br_pwm = 0;
 // Stage variables
 int target_an_pin = 0;  // Case expression for sampling
 int target_value = 0;  // Sampling assignment
-int pad[5] = {1,1,0,0,0}; // Five copper pads
 int sample_count = 0; // Number of samples taken
+int peak[5] = {0}; // Five copper pad peaks
+int total[5] = {0}; // Five copper pad totals
+int pad[5] = {0}; // Final copper pad assignment
 char seq[] = "00000";  // decoded sequence
 char cmd_rot[] = "00000";  // commanded rotation sequence
 char res_rot[] = "00000";  // resultant rotation sequence
@@ -543,99 +545,75 @@ void retract_STG3() {
 
 // Performs Stage 1
 void STG1() {
-    target_an_pin = 0;
-    pad[0] = 0;
-    pad[1] = 0;
-    pad[2] = 0;
-    pad[3] = 0;
-    pad[4] = 0;
-    //deploy_STG1();
-    Serial.println("Begin STG1");
+
     // Samples DC peak values
+    Serial.println("Beginning sampling.");
     while (target_an_pin < 5){
       // Check for open circuit
-        if ((target_an_pin == 2) && (pad[0] >= 37) && (pad[1] >= 37) && (pad[0] <= 40) && (pad[1] <= 40)){
-          // TODO: add timeout
-          Serial.println("OPEN CIRCUIT");
-          // Send an update to ROS
-          target_an_pin = 0;
-        }
         switch(target_an_pin) { 
           case 0:
           // Initializes DC output for curent pad
             if (sample_count == 0){
              digitalWrite(DC_TOP, HIGH); 
             }
-            delay(SAMPLE_MS_INTERVAL); // Interval between samples
             target_value = analogRead(ADC_TOP);
-            if (target_value >= pad[0]){
-              pad[0] = target_value;
+            total[0] = total[0] + target_value;
+            if (target_value >= peak[0]){
+              peak[0] = target_value;
             }
-            samples[sample_count] = target_value;
-            sample_count++;
-            
+            sample_count = sample_count + 1;
             break;   
           case 1:
           // Initializes DC output for curent pad
             if (sample_count == 0){
                digitalWrite(DC_TL, HIGH); 
             }
-            delay(SAMPLE_MS_INTERVAL); // Interval between samples
             target_value = analogRead(ADC_TL);
-            if (target_value >= pad[1]){
-              pad[1] = target_value;
+            total[1] = total[1] + target_value;
+            if (target_value >= peak[1]){
+              peak[1] = target_value;
             }
-            samples[sample_count] = target_value;
-            sample_count++;
-            
+            sample_count = sample_count + 1;
             break;  
           case 2:
           // Initializes DC output for curent pad
             if (sample_count == 0){
                digitalWrite(DC_BL, HIGH); 
             }
-            delay(SAMPLE_MS_INTERVAL); // Interval between samples
             target_value = analogRead(ADC_BL);
-            if (target_value >= pad[2]){
-              pad[2] = target_value;
+            total[2] = total[2] + target_value;
+            if (target_value >= peak[2]){
+              peak[2] = target_value;
             }
-            samples[sample_count] = target_value;
-            sample_count++;
-            
+            sample_count = sample_count + 1;
             break;      
           case 3:
           // Initializes DC output for curent pad
             if (sample_count == 0){
                digitalWrite(DC_BR, HIGH); 
             }
-            delay(SAMPLE_MS_INTERVAL); // Interval between samples
             target_value = analogRead(ADC_BR);
-            if (target_value >= pad[3]){
-              pad[3] = target_value;
+            total[3] = total[3] + target_value;
+            if (target_value >= peak[3]){
+              peak[3] = target_value;
             }
-            samples[sample_count] = target_value;
-            sample_count++;
-            
+            sample_count = sample_count + 1;
             break;        
           case 4:
           // Initializes DC output for curent pad
             if (sample_count == 0){
                digitalWrite(DC_TR, HIGH); 
             }
-            delay(SAMPLE_MS_INTERVAL); // Interval between samples
             target_value = analogRead(ADC_TR);
-            if (target_value >= pad[4]){
-              pad[4] = target_value;
+            total[4] = total[4] + target_value;
+            if (target_value >= peak[4]){
+              peak[4] = target_value;
             }
-            samples[sample_count] = target_value;
-            sample_count++;
-            
+            sample_count = sample_count + 1;
             break;
       }
       // set number of samples wanted for each pad and reset when reached
-      if (sample_count >= SAMPLES){
-        // Print samples
-        print_samples();
+      if (sample_count >= 5000){
         sample_count = 0;
         target_an_pin = target_an_pin + 1;
         // reset input voltages to get initial transient for next pad
@@ -644,39 +622,59 @@ void STG1() {
         digitalWrite(DC_BL, LOW);
         digitalWrite(DC_BR, LOW); 
         digitalWrite(DC_TR, LOW);
-        delay(2000);
+        Serial.println("Sampling next pad."); 
       }
     }
 
-    // Final pad assigments
-    for (int m = 0; m < 5; m++){
-      Serial.print("PAD: ");
-      Serial.println(m);
-      Serial.println(pad[m]);
-      if ((pad[m] >= 0) && (pad[m] <= 10)){
-        pad[m] = 1; //wire
-        seq[m] = '1';
-      }
-      else if ((pad[m] >= 34) && (pad[m] <= 36)){
-        pad[m] = 2; //resistor
-        seq[m] = '2';
-      }
-      else if ((pad[m] >= 75) && (pad[m] <= 95)){
-        pad[m] = 3; //capacitor
-        seq[m] = '3';
-      }
-      else if ((pad[m] >= 20) && (pad[m] <= 26)){
-        pad[m] = 4; //inductor
-        seq[m] = '4';
-      }
-      else if ((pad[m] >= 37) && (pad[m] <= 40)){
-        pad[m] = 5; //diode
-        seq[m] = '5';
+    // creates a duplicate total array
+    for(int m = 0; m < 5; m++){
+      pad[m] = total[m];
+    }
+
+    // sorts the total array from least to greatest
+    Serial.println("Processing sampled data.");
+    for (int i = 0; i < 5; i++){
+    for (int j = i; j < 5; j++){
+        if (total[i] > total[j]){
+            int temp;
+            temp = total[i];
+            total[i] = total[j];
+            total[j] = temp;
+        }
+    }
+  }
+
+    // final pad assingment
+    for(int m = 0; m < 5; m++){
+      for(int n = 0; n < 5; n++){
+        if (total[m] == pad[n]){
+          if (m == 0){
+            pad[n] = 1; // wire
+          }
+          else if (m == 1){
+            pad[n] = 4; // inductor
+          }
+          else if (m == 2){
+            pad[n] = 2; // resistor
+          }
+          else if (m == 3){
+            pad[n] = 3; // capacitor
+          }
+          else if (m == 4){
+            pad[n] = 5; // diode
+          }
+        }
       }
     }
-    Serial.println(seq);
-    //retract_STG1();
-    STG_trigger = 0;
+
+  // prints the results
+  for (int m; m < 5; m = m + 1){
+    Serial.print("Pad ");
+    Serial.print(m);
+    Serial.print(" is a ");
+    Serial.print(pad[m]);
+    Serial.print("\n");
+  }
 }
 
 
