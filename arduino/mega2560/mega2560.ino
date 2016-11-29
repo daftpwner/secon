@@ -544,13 +544,18 @@ void retract_STG3() {
 // Performs Stage 1
 void STG1() {
     target_an_pin = 0;
-    pad[5] = {0};
-    deploy_STG1();
+    pad[0] = 0;
+    pad[1] = 0;
+    pad[2] = 0;
+    pad[3] = 0;
+    pad[4] = 0;
+    //deploy_STG1();
     Serial.println("Begin STG1");
     // Samples DC peak values
     while (target_an_pin < 5){
       // Check for open circuit
         if ((target_an_pin == 2) && (pad[0] >= 37) && (pad[1] >= 37) && (pad[0] <= 40) && (pad[1] <= 40)){
+          // TODO: add timeout
           Serial.println("OPEN CIRCUIT");
           // Send an update to ROS
           target_an_pin = 0;
@@ -670,7 +675,7 @@ void STG1() {
       }
     }
     Serial.println(seq);
-    retract_STG1();
+    //retract_STG1();
     STG_trigger = 0;
 }
 
@@ -726,12 +731,12 @@ void STG3(){
 // Check and send statuses including Stage 1 connection validation
 void update_status(){
     Serial.print("B:sw:");
-    Serial.print(~digitalRead(START_SWITCH));
-    Serial.print(~digitalRead(STG1_WALL_SWITCH));
-    Serial.print(~digitalRead(STG1_ALIGN_SWITCH));
-    Serial.print(~digitalRead(STG3_WALL_SWITCH));
-    Serial.print(~digitalRead(STG3_ALIGN_SWITCH));
-    Serial.print(~digitalRead(STOP_SWITCH));
+    Serial.print(1^digitalRead(START_SWITCH));
+    Serial.print(1^digitalRead(STG1_WALL_SWITCH));
+    Serial.print(1^digitalRead(STG1_ALIGN_SWITCH));
+    Serial.print(1^digitalRead(STG3_WALL_SWITCH));
+    Serial.print(1^digitalRead(STG3_ALIGN_SWITCH));
+    Serial.print(1^digitalRead(STOP_SWITCH));
     Serial.print("wv:");
     Serial.print(fl_vel);
     Serial.print(";");
