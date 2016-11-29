@@ -30,6 +30,16 @@ Servo servo2; // rotation
 #define BR_ENC_A 18
 #define BR_ENC_B 4
 
+// Bump switch pins
+#define STG1_WALL_SWITCH 22
+#define STG1_ALIGN_SWITCH 24
+#define STG3_WALL_SWITCH 23
+#define STG3_ALIGN_SWITCH 25
+
+// Start/Stop switch pins
+#define START_SWITCH 26
+#define STOP_SWITCH 27
+
 // DC pins
 #define DC_TOP 30
 #define DC_TL 31
@@ -120,22 +130,22 @@ int STG_trigger = 0b00;
 // These are parameters that can be changed at runtime via ROS
 
 // Front Left wheel
-double fl_Kp = 1.5; // Proportional gain 
+double fl_Kp = 1.4; // Proportional gain 
 double fl_Ki = 6.0; // Integral gain 
 double fl_Kd = 0.1; // Derivative gain 
 
 // Front Right wheel
-double fr_Kp = 1.5; // Proportional gain
+double fr_Kp = 1.4; // Proportional gain
 double fr_Ki = 6.0; // Integral gain
 double fr_Kd = 0.1; // Derivative gain
 
 // Back Left wheel
-double bl_Kp = 1.5; // Proportional gain
+double bl_Kp = 1.4; // Proportional gain
 double bl_Ki = 6.0; // Integral gain
 double bl_Kd = 0.1; // Derivative gain
 
 // Back Right wheel
-double br_Kp = 1.5; // 1 Proportional gain
+double br_Kp = 1.4; // 1 Proportional gain
 double br_Ki = 6.0; // 50 Integral gain
 double br_Kd = 0.1; // 0.01 Derivative gain
 
@@ -177,6 +187,16 @@ void setup() {
     attachInterrupt(digitalPinToInterrupt(FR_ENC_A),FR_A,CHANGE);
     attachInterrupt(digitalPinToInterrupt(BL_ENC_A),BL_A,CHANGE);
     attachInterrupt(digitalPinToInterrupt(BR_ENC_A),BR_A,CHANGE);
+
+    // Initialize bump switch pins
+    pinMode(STG1_WALL_SWITCH,INPUT_PULLUP);
+    pinMode(STG1_ALIGN_SWITCH,INPUT_PULLUP);
+    pinMode(STG3_WALL_SWITCH,INPUT_PULLUP);
+    pinMode(STG3_ALIGN_SWITCH,INPUT_PULLUP);
+
+    // Initialize Start/Stop switch pins
+    pinMode(START_SWITCH,INPUT_PULLUP);
+    pinMode(STOP_SWITCH,INPUT_PULLUP);
 
     // Initialize stage 1 pins
     pinMode(DC_TOP, OUTPUT);
@@ -503,6 +523,7 @@ void deploy_STG1() {
 void retract_STG1() {
 
   STG1_motor->step(156,FORWARD,MICROSTEP);
+  STG1_motor->release();
 }
 
 
@@ -516,6 +537,7 @@ void deploy_STG3() {
 void retract_STG3() {
 
   STG3_motor->step(140,BACKWARD,MICROSTEP);
+  STG3_motor->release();
 }
 
 
@@ -698,48 +720,18 @@ void STG3(){
     servo1.write(0);
     retract_STG3();
     STG_trigger = 0;
-
-  /* working code using delays
-   // grip the knob
-  servo1.write(55);
-  delay(2000);
-  // initiate rotation sequences
-  for (int m = 0; m < 5; m = m + 1){
-    // set number of rotations for current sequence
-    rotate = pad[m];
-    // alternate rotation direction
-    if (turn == 0){
-      turn = 1;
-    }
-    else if (turn == 1){
-      turn = 0;
-    }
-    while (rotate > 0){
-      // check rotation direction
-      if (turn == 0){
-        servo2.write(88);
-        delay(2790); //360 degree clockwise delay
-        servo2.write(92); // pause rotation
-        delay(600);
-      }
-      else{
-        servo2.write(96);
-        delay(2382); //360 degree counterclockwise delay
-        servo2.write(92); // pause rotation
-        delay(600);
-      }
-        // decrement one rotation sequence
-        rotate = rotate - 1;
-    }
-  }
-  */
   
 }
 
 // Check and send statuses including Stage 1 connection validation
 void update_status(){
     Serial.print("B:sw:");
-    // Print switch states with no separation characters
+    Serial.print(~digitalRead(START_SWITCH));
+    Serial.print(~digitalRead(STG1_WALL_SWITCH));
+    Serial.print(~digitalRead(STG1_ALIGN_SWITCH));
+    Serial.print(~digitalRead(STG3_WALL_SWITCH));
+    Serial.print(~digitalRead(STG3_ALIGN_SWITCH));
+    Serial.print(~digitalRead(STOP_SWITCH));
     Serial.print("wv:");
     Serial.print(fl_vel);
     Serial.print(";");
