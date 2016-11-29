@@ -340,11 +340,11 @@ void loop() {
         case (0b00):  // Do nothing
             break;
     
-        case (0b01):  // Stage 1 trigger
+        case (0b10):  // Stage 1 trigger
             STG1();
             break;
     
-        case (0b10):  // Stage 3 trigger
+        case (0b01):  // Stage 3 trigger
             STG3();
             break;
     
