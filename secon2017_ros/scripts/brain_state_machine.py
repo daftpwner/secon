@@ -124,7 +124,7 @@ class BrainStateMachine():
         # 2: Stage 1 Alignment Switch
         # 3: Stage 3 Wall Switch
         # 4: Stage 3 Alignment Switch
-        # 5:
+        # 5: E-STOP
         # state.wheel_vels: list of wheel velocities
         # 0: Front Left wheel
         # 1: Front Right wheel
