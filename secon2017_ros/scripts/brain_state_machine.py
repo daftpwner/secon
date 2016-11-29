@@ -164,8 +164,8 @@ class BrainStateMachine():
             else:
                 # Stop
                 # Move forward
-                # x: 50 mm/s y: 10 mm/s z: 0 rad/s
-                cmd_msg.wheel_vels = self.mix_wheel_velocities(50, 10, 0)
+                # x: -50 mm/s y: -20 mm/s z: 0 rad/s
+                cmd_msg.wheel_vels = self.mix_wheel_velocities(-50, -20, 0)
                 self.command_pub.publish(cmd_msg)
             return
 
@@ -183,15 +183,17 @@ class BrainStateMachine():
             else:
                 # Keep sliding along wall
                 # Slide along wall
-                # x: 10 mm/s y: -20 mm/s z: 0 rad/s
-                cmd_msg.wheel_vels = self.mix_wheel_velocities(10, -20, 0)
+                # x: -10 mm/s y: 20 mm/s z: 0 rad/s
+                cmd_msg.wheel_vels = self.mix_wheel_velocities(-10, 20, 0)
                 self.command_pub.publish(cmd_msg)
             return
 
         elif self.states[self.current_state] == "align_to_STG1":
             # Final alignment and connection to Stage 1
             # TODO: make adjustments to position and trigger stage 1
-            # self.command_pub.publish(cmd_msg)
+            # Send stage trigger
+            cmd_msg.stg1 = True
+            self.command_pub.publish(cmd_msg)
             return
 
         elif self.states[self.current_state] == "perform_STG1":
@@ -223,6 +225,12 @@ class BrainStateMachine():
                 # x: 0 mm/s y: 0 mm/s z: 0 rad/s
                 cmd_msg.wheel_vels = self.mix_wheel_velocities(0, 0, 0)
                 self.command_pub.publish(cmd_msg)
+            else:
+            	# Move forwards
+            	# x: 50 mm/s y: 20 mm/s z: 0 rad/s
+                cmd_msg.wheel_vels = self.mix_wheel_velocities(50, 20, 0)
+                self.command_pub.publish(cmd_msg)
+
             return
 
         elif self.states[self.current_state] == "nav_to_STG3":
@@ -239,14 +247,15 @@ class BrainStateMachine():
             else:
                 # Slide along wall
                 # x: 10 mm/s y: 30 mm/s z: 0 rad/s
-                cmd_msg.wheel_vels = self.mix_wheel_velocities(10, 30, 0)
+                cmd_msg.wheel_vels = self.mix_wheel_velocities(10, -20, 0)
                 self.command_pub.publish(cmd_msg)
             return
 
         elif self.states[self.current_state] == "align_to_STG3":
             # Final alignment and connection to Stage 3
             # TODO: make adjustments to position and trigger stage 3
-            # self.command_pub.publish(cmd_msg)
+            cmd_msg.stg3 = True
+            self.command_pub.publish(cmd_msg)
             return
 
         elif self.states[self.current_state] == "perform_STG3":
@@ -336,8 +345,8 @@ class BrainStateMachine():
         # Below are the equations for obtaining the individual angular velocities
         fl_wvel = x_vel - y_vel - (lx_axis + ly_axis) * ang_vel
         fr_wvel = x_vel + y_vel + (lx_axis + ly_axis) * ang_vel
-        br_wvel = x_vel + y_vel - (lx_axis + ly_axis) * ang_vel
-        bl_wvel = x_vel - y_vel + (lx_axis + ly_axis) * ang_vel
+        bl_wvel = x_vel + y_vel - (lx_axis + ly_axis) * ang_vel
+        br_wvel = x_vel - y_vel + (lx_axis + ly_axis) * ang_vel
 
         return [fl_wvel, fr_wvel, bl_wvel, br_wvel]
 
