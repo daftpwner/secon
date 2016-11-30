@@ -42,17 +42,17 @@ Servo servo2; // rotation
 
 // DC pins
 #define DC_TOP 30
-#define DC_TL 31
-#define DC_BL 32
-#define DC_BR 33
-#define DC_TR 34
+#define DC_TR 31
+#define DC_BR 32
+#define DC_BL 33
+#define DC_TL 34
 
 // Analog pins
 #define ADC_TOP A0
-#define ADC_TL A1
-#define ADC_BL A2
-#define ADC_BR A3
-#define ADC_TR A7
+#define ADC_TR A1
+#define ADC_BR A2
+#define ADC_BL A3
+#define ADC_TL A7
 
 // STG1
 #define SAMPLES 250
@@ -202,15 +202,15 @@ void setup() {
 
     // Initialize stage 1 pins
     pinMode(DC_TOP, OUTPUT);
-    pinMode(DC_TL, OUTPUT);
-    pinMode(DC_BL, OUTPUT);
-    pinMode(DC_BR, OUTPUT);
     pinMode(DC_TR, OUTPUT);
+    pinMode(DC_BR, OUTPUT);
+    pinMode(DC_BL, OUTPUT);
+    pinMode(DC_TL, OUTPUT);
     pinMode(ADC_TOP, INPUT);
-    pinMode(ADC_TL, INPUT);
-    pinMode(ADC_BL, INPUT);
-    pinMode(ADC_BR, INPUT);
     pinMode(ADC_TR, INPUT);
+    pinMode(ADC_BR, INPUT);
+    pinMode(ADC_BL, INPUT);
+    pinMode(ADC_TL, INPUT);
     
     // Start motor shield
     AFMS.begin();
@@ -566,9 +566,9 @@ void STG1() {
           case 1:
           // Initializes DC output for curent pad
             if (sample_count == 0){
-               digitalWrite(DC_TL, HIGH); 
+               digitalWrite(DC_TR, HIGH); 
             }
-            target_value = analogRead(ADC_TL);
+            target_value = analogRead(ADC_TR);
             total[1] = total[1] + target_value;
             if (target_value >= peak[1]){
               peak[1] = target_value;
@@ -578,9 +578,9 @@ void STG1() {
           case 2:
           // Initializes DC output for curent pad
             if (sample_count == 0){
-               digitalWrite(DC_BL, HIGH); 
+               digitalWrite(DC_BR, HIGH); 
             }
-            target_value = analogRead(ADC_BL);
+            target_value = analogRead(ADC_BR);
             total[2] = total[2] + target_value;
             if (target_value >= peak[2]){
               peak[2] = target_value;
@@ -590,9 +590,9 @@ void STG1() {
           case 3:
           // Initializes DC output for curent pad
             if (sample_count == 0){
-               digitalWrite(DC_BR, HIGH); 
+               digitalWrite(DC_BL, HIGH); 
             }
-            target_value = analogRead(ADC_BR);
+            target_value = analogRead(ADC_BL);
             total[3] = total[3] + target_value;
             if (target_value >= peak[3]){
               peak[3] = target_value;
@@ -602,9 +602,9 @@ void STG1() {
           case 4:
           // Initializes DC output for curent pad
             if (sample_count == 0){
-               digitalWrite(DC_TR, HIGH); 
+               digitalWrite(DC_TL, HIGH); 
             }
-            target_value = analogRead(ADC_TR);
+            target_value = analogRead(ADC_TL);
             total[4] = total[4] + target_value;
             if (target_value >= peak[4]){
               peak[4] = target_value;
@@ -618,10 +618,10 @@ void STG1() {
         target_an_pin = target_an_pin + 1;
         // reset input voltages to get initial transient for next pad
         digitalWrite(DC_TOP, LOW);
-        digitalWrite(DC_TL, LOW);
-        digitalWrite(DC_BL, LOW);
-        digitalWrite(DC_BR, LOW); 
         digitalWrite(DC_TR, LOW);
+        digitalWrite(DC_BR, LOW);
+        digitalWrite(DC_BL, LOW); 
+        digitalWrite(DC_TL, LOW);
         Serial.println("Sampling next pad."); 
       }
     }
