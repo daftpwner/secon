@@ -120,7 +120,7 @@ char seq[] = "00000";  // decoded sequence
 char cmd_rot[] = "00000";  // commanded rotation sequence
 char res_rot[] = "00000";  // resultant rotation sequence
 int rotate = 0; // number of rotations
-int turn = 1; // rotation direction: 0 = clockwise; 1 = counterclockwise
+int turn = 0; // rotation direction: 0 = counterclockwise; 1 = clockwise
 unsigned long timer; // stage 3 rotation reference
 unsigned long time_check; // stage 3 rotation duration
 
