@@ -109,13 +109,27 @@ double fr_pwm = 0;
 double bl_pwm = 0;
 double br_pwm = 0;
 
-// Stage variables
+// Stage 1 variables
 int target_an_pin = 0;  // Case expression for sampling
 int target_value = 0;  // Sampling assignment
 int sample_count = 0; // Number of samples taken
 int peak[5] = {0}; // Five copper pad peaks
 int total[5] = {0}; // Five copper pad totals
 int pad[5] = {0}; // Final copper pad assignment
+int min_total = 30000; // keeps track of minimal total to find inductor
+int ind_ind = 0; // inductor index
+int wire_ind = 0; // wire index
+int res_ind = 0; // res index
+int diode_ind = 0; // diode index
+int cap_ind = 0;// capacitor index
+int res_found = 0; // resistor: 0 not found; 1 found
+int diode_found = 0; // diode: 0 not found; 1 found
+int cap_found = 0; // capacitor: 0 not found; 1 found
+int ind_count = 0; // keep track of number of unkown indeces found
+int check_ind1 = 0; // index checker for remaining 2 components 
+int check_ind2 = 0; // index checker for remaining 2 components 
+
+// Stage 3 variables
 char seq[] = "00000";  // decoded sequence
 char cmd_rot[] = "00000";  // commanded rotation sequence
 char res_rot[] = "00000";  // resultant rotation sequence
@@ -545,10 +559,18 @@ void retract_STG3() {
 
 // Performs Stage 1
 void STG1() {
-
+    // Samples DC peak values
     // Samples DC peak values
     Serial.println("Beginning sampling.");
     while (target_an_pin < 5){
+      if (target_an_pin == 4){
+        if ((peak[0] < 12) && (peak[1] < 12) && (peak[2] < 12) && (peak[3] < 12)){
+          Serial.println("Open Circuit detected");
+          Serial.println("Resampling...");
+          delay(2000);
+          target_an_pin = 0;
+        }
+      }
       // Check for open circuit
         switch(target_an_pin) { 
           case 0:
@@ -622,53 +644,137 @@ void STG1() {
         digitalWrite(DC_BR, LOW);
         digitalWrite(DC_BL, LOW); 
         digitalWrite(DC_TL, LOW);
+        delay(1000);
         Serial.println("Sampling next pad."); 
       }
     }
+    
+    Serial.println("Processing sampled data...");
 
-    // creates a duplicate total array
-    for(int m = 0; m < 5; m++){
-      pad[m] = total[m];
-    }
 
-    // sorts the total array from least to greatest
-    Serial.println("Processing sampled data.");
-    for (int i = 0; i < 5; i++){
-    for (int j = i; j < 5; j++){
-        if (total[i] > total[j]){
-            int temp;
-            temp = total[i];
-            total[i] = total[j];
-            total[j] = temp;
-        }
-    }
-  }
-
-    // final pad assingment
-    for(int m = 0; m < 5; m++){
-      for(int n = 0; n < 5; n++){
-        if (total[m] == pad[n]){
-          if (m == 0){
-            pad[n] = 1; // wire
-          }
-          else if (m == 1){
-            pad[n] = 4; // inductor
-          }
-          else if (m == 2){
-            pad[n] = 2; // resistor
-          }
-          else if (m == 3){
-            pad[n] = 3; // capacitor
-          }
-          else if (m == 4){
-            pad[n] = 5; // diode
-          }
-        }
+    // Wire pad assignment
+    for (int m = 0; m < 5; m = m + 1){
+      if (peak[m] <= 1){
+        wire_ind = m; // wire index
       }
     }
 
-  // prints the results
-  for (int m; m < 5; m = m + 1){
+    pad[wire_ind] = 1; // wire
+
+    // Inductor pad assigment
+    for (int m = 0; m < 5; m = m + 1){ 
+      if ((total[m] < min_total) && (m != wire_ind)){
+        min_total = total[m];
+        ind_ind = m; // inductor
+      }
+    }
+
+    pad[ind_ind] = 4; // inductor
+  
+    // Look for res, cap, and diode
+    for (int m = 0; m < 5; m = m + 1){ 
+      if ((peak[m] >= 35) && (peak[m] <= 75)){
+        pad[m] = 2; // resistor
+        res_found = 1; // resistor found
+        res_ind = m; // resistor index
+      }
+      if ((peak[m] >= 70) && (peak[m] <= 110)){
+        pad[m] = 5; // diode
+        diode_found = 1; // diode found
+        diode_ind = m; // diode index
+      }
+      if ((peak[m] >= 15) && (peak[m] <= 25) && (m != ind_ind)){
+        pad[m] = 3; // capacitor
+        cap_found = 1; // capacitor found
+        cap_ind = m; // capacitor index
+      }
+    }
+
+    // Differentiate capacitor from diode
+    if ((cap_found == 0) && (diode_found == 0)){
+        for (int m = 0; m < 5; m = m + 1){
+          if ((m != wire_ind) && (m != ind_ind) && (m != res_ind)){
+            if (ind_count == 0){
+              check_ind1 = m; // cap or diode index 1
+              ind_count = 1; // one unknown index found
+            }
+            else{
+              check_ind2 = m; // cap or diode index 2
+            }
+          }
+        }
+        if (total[check_ind1] > total[check_ind2]){
+          pad[check_ind1] = 3; // capacitor
+          pad[check_ind2] = 5; // diode
+          cap_ind = check_ind1;
+          diode_ind = check_ind2;
+        }
+        else{
+          pad[check_ind1] = 5; // diode
+          pad[check_ind2] = 3; // capacitor
+          cap_ind = check_ind2;
+          diode_ind = check_ind2;
+        }
+    }
+
+    // Differentiate resistor from diode
+    if ((res_found == 0) && (diode_found == 0)){
+        for (int m = 0; m < 5; m = m + 1){
+          if ((m != wire_ind) && (m != ind_ind) && (m != cap_ind)){
+            if (ind_count == 0){
+              check_ind1 = m; // res or diode index 1
+              ind_count = 1; // one unknown index found
+            }
+            else{
+              check_ind2 = m; // res or diode index 2
+            }
+          }
+        }
+        if (total[check_ind1] < total[check_ind2]){
+          pad[check_ind1] = 2; // resistor
+          pad[check_ind2] = 5; // diode
+          res_ind = check_ind1;
+          diode_ind = check_ind2;
+        }
+        else{
+          pad[check_ind1] = 5; // diode
+          pad[check_ind2] = 2; // resistor
+          res_ind = check_ind2;
+          diode_ind = check_ind1;
+        }
+    }
+
+    if (res_found == 0){
+      for (int m = 0; m < 5; m = m + 1){
+        if ((m != wire_ind) && (m != ind_ind) && (m != cap_ind) && (m!= diode_ind)){
+          res_ind = m; // resistor ind
+          res_found = 1; // resistor found
+        }
+      }
+      pad[res_ind] = 2; // resistor
+    }
+
+    if (diode_found == 0){
+      for (int m = 0; m < 5; m = m + 1){
+        if ((m != wire_ind) && (m != ind_ind) && (m != cap_ind) && (m!= res_ind)){
+          diode_ind = m; // diode ind
+          diode_found = 1; // diode found
+        }
+      }
+      pad[diode_ind] = 5; // diode
+    }
+    
+    if (cap_found == 0){
+      for (int m = 0; m < 5; m = m + 1){
+        if ((m != wire_ind) && (m != ind_ind) && (m != diode_ind) && (m!= res_ind)){
+          cap_ind = m; // capacitor ind
+          cap_found = 1; // capacitor found
+        }
+      }
+      pad[cap_ind] = 3; // capacitor
+    }
+
+  for (int m = 0; m < 5; m = m + 1){
     Serial.print("Pad ");
     Serial.print(m);
     Serial.print(" is a ");
