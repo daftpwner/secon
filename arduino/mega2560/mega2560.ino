@@ -40,14 +40,8 @@ Servo servo2; // rotation
 #define START_SWITCH 26
 #define STOP_SWITCH 27
 
-// DC pins
-#define DC_TOP 30
-#define DC_TR 31
-#define DC_BR 32
-#define DC_BL 33
-#define DC_TL 34
-
 // Analog pins
+#define STG1_PWM 44
 #define ADC_TOP A0
 #define ADC_TR A1
 #define ADC_BR A2
@@ -110,24 +104,22 @@ double bl_pwm = 0;
 double br_pwm = 0;
 
 // Stage 1 variables
-int target_an_pin = 0;  // Case expression for sampling
-int target_value = 0;  // Sampling assignment
-int sample_count = 0; // Number of samples taken
+int target_value[5] = {0}; // Sampled values for each pad
+int sample_count = 0;
 int peak[5] = {0}; // Five copper pad peaks
 int total[5] = {0}; // Five copper pad totals
 int pad[5] = {0}; // Final copper pad assignment
-int min_total = 30000; // keeps track of minimal total to find inductor
-int ind_ind = 0; // inductor index
-int wire_ind = 0; // wire index
-int res_ind = 0; // res index
-int diode_ind = 0; // diode index
-int cap_ind = 0;// capacitor index
-int res_found = 0; // resistor: 0 not found; 1 found
-int diode_found = 0; // diode: 0 not found; 1 found
-int cap_found = 0; // capacitor: 0 not found; 1 found
-int ind_count = 0; // keep track of number of unkown indeces found
-int check_ind1 = 0; // index checker for remaining 2 components 
-int check_ind2 = 0; // index checker for remaining 2 components 
+int wire_ind = 0; // Wire index placeholder
+int ind_ind = 0; // Inductor index placeholder
+int cap_ind = 0; // Capacitor index placeholder
+int diode_ind = 0; // Diode index placeholder
+int rb_diode = 0; // If diode is found to be reverse-biased: 1
+int min_total = 30000; // Min total used to find inductor
+int max_total = 0; // Max total used to find capacitor
+int check_count = 0; // Used to find resistor and forward-biased diode
+int check_ind1 = 0; // Used to find resistor and forward-biased diode
+int check_ind2 = 0; // Used to find resistor and forward-biased diode
+int open_count = 0; // Open circuit counter; 5 tries = abort
 
 // Stage 3 variables
 char seq[] = "00000";  // decoded sequence
@@ -215,11 +207,7 @@ void setup() {
     pinMode(STOP_SWITCH,INPUT_PULLUP);
 
     // Initialize stage 1 pins
-    pinMode(DC_TOP, OUTPUT);
-    pinMode(DC_TR, OUTPUT);
-    pinMode(DC_BR, OUTPUT);
-    pinMode(DC_BL, OUTPUT);
-    pinMode(DC_TL, OUTPUT);
+    pinMode(STG1_PWM, OUTPUT);
     pinMode(ADC_TOP, INPUT);
     pinMode(ADC_TR, INPUT);
     pinMode(ADC_BR, INPUT);
@@ -559,227 +547,135 @@ void retract_STG3() {
 
 // Performs Stage 1
 void STG1() {
-    // Samples DC peak values
-    // Samples DC peak values
+    // Samples PWM peak values and keeps track of sum of all samples
+    analogWrite(STG1_PWM, 127); // 50% duty cycle signle PWM input for all test circuits
+    delay(100);
     Serial.println("Beginning sampling.");
-    while (target_an_pin < 5){
-      if (target_an_pin == 4){
-        if ((peak[0] < 12) && (peak[1] < 12) && (peak[2] < 12) && (peak[3] < 12)){
-          Serial.println("Open Circuit detected");
-          Serial.println("Resampling...");
-          delay(2000);
-          target_an_pin = 0;
-        }
-      }
-      // Check for open circuit
-        switch(target_an_pin) { 
-          case 0:
-          // Initializes DC output for curent pad
-            if (sample_count == 0){
-             digitalWrite(DC_TOP, HIGH); 
-            }
-            target_value = analogRead(ADC_TOP);
-            total[0] = total[0] + target_value;
-            if (target_value >= peak[0]){
-              peak[0] = target_value;
-            }
-            sample_count = sample_count + 1;
-            break;   
-          case 1:
-          // Initializes DC output for curent pad
-            if (sample_count == 0){
-               digitalWrite(DC_TR, HIGH); 
-            }
-            target_value = analogRead(ADC_TR);
-            total[1] = total[1] + target_value;
-            if (target_value >= peak[1]){
-              peak[1] = target_value;
-            }
-            sample_count = sample_count + 1;
-            break;  
-          case 2:
-          // Initializes DC output for curent pad
-            if (sample_count == 0){
-               digitalWrite(DC_BR, HIGH); 
-            }
-            target_value = analogRead(ADC_BR);
-            total[2] = total[2] + target_value;
-            if (target_value >= peak[2]){
-              peak[2] = target_value;
-            }
-            sample_count = sample_count + 1;
-            break;      
-          case 3:
-          // Initializes DC output for curent pad
-            if (sample_count == 0){
-               digitalWrite(DC_BL, HIGH); 
-            }
-            target_value = analogRead(ADC_BL);
-            total[3] = total[3] + target_value;
-            if (target_value >= peak[3]){
-              peak[3] = target_value;
-            }
-            sample_count = sample_count + 1;
-            break;        
-          case 4:
-          // Initializes DC output for curent pad
-            if (sample_count == 0){
-               digitalWrite(DC_TL, HIGH); 
-            }
-            target_value = analogRead(ADC_TL);
-            total[4] = total[4] + target_value;
-            if (target_value >= peak[4]){
-              peak[4] = target_value;
-            }
-            sample_count = sample_count + 1;
+    while (sample_count <= 1000){
+        // open circuit check
+        if (sample_count == 500){
+          if ((peak[0] > 550) && (peak[1] > 550) && (peak[2] > 550)){
+            Serial.println("Open circuit detected");
+            Serial.println("Resampling");
+            open_count += 1; 
+            sample_count = 0;
+          }
+          // Too many attempts
+          if (open_count >= 5){
+            Serial.println("Abort");
             break;
+          }
+        }
+        target_value[0] = analogRead(ADC_TOP); 
+        target_value[1] = analogRead(ADC_TR);
+        target_value[2] = analogRead(ADC_BR);
+        target_value[3] = analogRead(ADC_BL);
+        target_value[4] = analogRead(ADC_TL);
+        total[0] = total[0] + target_value[0];
+        total[1] = total[1] + target_value[1];
+        total[2] = total[2] + target_value[2];
+        total[3] = total[3] + target_value[3];
+        total[4] = total[4] + target_value[4];
+        if (target_value[0] >= peak[0]){
+          peak[0] = target_value[0];
       }
-      // set number of samples wanted for each pad and reset when reached
-      if (sample_count >= 5000){
-        sample_count = 0;
-        target_an_pin = target_an_pin + 1;
-        // reset input voltages to get initial transient for next pad
-        digitalWrite(DC_TOP, LOW);
-        digitalWrite(DC_TR, LOW);
-        digitalWrite(DC_BR, LOW);
-        digitalWrite(DC_BL, LOW); 
-        digitalWrite(DC_TL, LOW);
-        delay(1000);
-        Serial.println("Sampling next pad."); 
+      if (target_value[1] >= peak[1]){
+          peak[1] = target_value[1];
       }
-    }
-    
-    Serial.println("Processing sampled data...");
-
-
-    // Wire pad assignment
-    for (int m = 0; m < 5; m = m + 1){
-      if (peak[m] <= 1){
-        wire_ind = m; // wire index
+      if (target_value[2] >= peak[2]){
+          peak[2] = target_value[2];
       }
-    }
-
-    pad[wire_ind] = 1; // wire
-
-    // Inductor pad assigment
-    for (int m = 0; m < 5; m = m + 1){ 
-      if ((total[m] < min_total) && (m != wire_ind)){
-        min_total = total[m];
-        ind_ind = m; // inductor
+      if (target_value[3] >= peak[3]){
+          peak[3] = target_value[3];
       }
+      if (target_value[4] >= peak[4]){
+          peak[4] = target_value[4];
+      }
+      sample_count += 1;
     }
 
-    pad[ind_ind] = 4; // inductor
+    if (open_count < 5){
+
+      // Sampling complete
+      Serial.println("Processing sampled data...");
   
-    // Look for res, cap, and diode
-    for (int m = 0; m < 5; m = m + 1){ 
-      if ((peak[m] >= 35) && (peak[m] <= 75)){
-        pad[m] = 2; // resistor
-        res_found = 1; // resistor found
-        res_ind = m; // resistor index
+      // Wire pad assignment
+      for (int m = 0; m < 5; m = m + 1){
+        if (peak[m] <= 15){
+          wire_ind = m; // wire index
+        }
       }
-      if ((peak[m] >= 70) && (peak[m] <= 110)){
-        pad[m] = 5; // diode
-        diode_found = 1; // diode found
-        diode_ind = m; // diode index
+  
+      pad[wire_ind] = 1; // wire assignment
+  
+      // Inductor pad assigment
+      for (int m = 0; m < 5; m = m + 1){ 
+        if ((total[m] < min_total) && (m != wire_ind)){
+          min_total = total[m];
+          ind_ind = m; // inductor index
+        }
       }
-      if ((peak[m] >= 15) && (peak[m] <= 25) && (m != ind_ind)){
-        pad[m] = 3; // capacitor
-        cap_found = 1; // capacitor found
-        cap_ind = m; // capacitor index
-      }
-    }
+  
+      pad[ind_ind] = 4; // inductor assignment
 
-    // Differentiate capacitor from diode
-    if ((cap_found == 0) && (diode_found == 0)){
+      // Capacitor pad assignment
+      for (int m = 0; m < 5; m = m + 1){ 
+        if ((total[m] > max_total) && (m != wire_ind) && (m != ind_ind)){
+          max_total = total[m];
+          cap_ind = m; // capacitor index
+        }
+      }
+  
+      pad[cap_ind] = 3; // capacitor assignment
+  
+      // Look for reverse-biased diode
+      for (int m = 0; m < 5; m = m + 1){ 
+        if ((peak[m] >= 550) && (m != wire_ind) && (m != ind_ind) && (m != cap_ind)){
+          pad[m] = 5; // reverse-biased diode assignment
+          diode_ind = m; // diode index
+          rb_diode = 1; // diode was reverse-biased and found
+        }
+      }
+  
+      // Check to see if reverse-biased diode was found
+      if (rb_diode == 1){
         for (int m = 0; m < 5; m = m + 1){
-          if ((m != wire_ind) && (m != ind_ind) && (m != res_ind)){
-            if (ind_count == 0){
-              check_ind1 = m; // cap or diode index 1
-              ind_count = 1; // one unknown index found
-            }
-            else{
-              check_ind2 = m; // cap or diode index 2
-            }
+          if ((m != wire_ind) && (m != ind_ind) && (m != cap_ind) && (m != diode_ind)){
+            pad[m] = 2; // resistor assignment
           }
         }
-        if (total[check_ind1] > total[check_ind2]){
-          pad[check_ind1] = 3; // capacitor
-          pad[check_ind2] = 5; // diode
-          cap_ind = check_ind1;
-          diode_ind = check_ind2;
-        }
+      }
+        // Otherwise find index of forward-biased diode and resistor
         else{
-          pad[check_ind1] = 5; // diode
-          pad[check_ind2] = 3; // capacitor
-          cap_ind = check_ind2;
-          diode_ind = check_ind2;
-        }
-    }
-
-    // Differentiate resistor from diode
-    if ((res_found == 0) && (diode_found == 0)){
-        for (int m = 0; m < 5; m = m + 1){
-          if ((m != wire_ind) && (m != ind_ind) && (m != cap_ind)){
-            if (ind_count == 0){
-              check_ind1 = m; // res or diode index 1
-              ind_count = 1; // one unknown index found
-            }
-            else{
-              check_ind2 = m; // res or diode index 2
+          for (int m = 0; m < 5; m = m + 1){
+            if ((m != wire_ind) && (m != ind_ind) && (m != cap_ind)){
+              if (check_count == 0){
+                check_ind1 = m; // first unknown component index
+                check_count = 1;
+              }
+              else{
+                check_ind2 = m; // second unknown component index
+              }
             }
           }
+          // Resistor and forward-biased diode assignment
+          if (peak[check_ind1] > peak[check_ind2]){
+            pad[check_ind1] = 2; // resistor assignment, larger peak
+            pad[check_ind2] = 5; // forward-biased diode assignment, smaller peak
+          }
+          else{
+            pad[check_ind1] = 5; // forward-biased diode assignment, smaller peak
+            pad[check_ind2] = 2; // resistor assignment, larger peak
+          }
         }
-        if (total[check_ind1] < total[check_ind2]){
-          pad[check_ind1] = 2; // resistor
-          pad[check_ind2] = 5; // diode
-          res_ind = check_ind1;
-          diode_ind = check_ind2;
+  
+        for (int m = 0; m < 5; m = m + 1){
+          Serial.print("Pad ");
+          Serial.print(m);
+          Serial.print(" is a ");
+          Serial.print(pad[m]);
+          Serial.print("\n");
         }
-        else{
-          pad[check_ind1] = 5; // diode
-          pad[check_ind2] = 2; // resistor
-          res_ind = check_ind2;
-          diode_ind = check_ind1;
-        }
-    }
-
-    if (res_found == 0){
-      for (int m = 0; m < 5; m = m + 1){
-        if ((m != wire_ind) && (m != ind_ind) && (m != cap_ind) && (m!= diode_ind)){
-          res_ind = m; // resistor ind
-          res_found = 1; // resistor found
-        }
-      }
-      pad[res_ind] = 2; // resistor
-    }
-
-    if (diode_found == 0){
-      for (int m = 0; m < 5; m = m + 1){
-        if ((m != wire_ind) && (m != ind_ind) && (m != cap_ind) && (m!= res_ind)){
-          diode_ind = m; // diode ind
-          diode_found = 1; // diode found
-        }
-      }
-      pad[diode_ind] = 5; // diode
-    }
-    
-    if (cap_found == 0){
-      for (int m = 0; m < 5; m = m + 1){
-        if ((m != wire_ind) && (m != ind_ind) && (m != diode_ind) && (m!= res_ind)){
-          cap_ind = m; // capacitor ind
-          cap_found = 1; // capacitor found
-        }
-      }
-      pad[cap_ind] = 3; // capacitor
-    }
-
-  for (int m = 0; m < 5; m = m + 1){
-    Serial.print("Pad ");
-    Serial.print(m);
-    Serial.print(" is a ");
-    Serial.print(pad[m]);
-    Serial.print("\n");
   }
 }
 
