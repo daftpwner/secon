@@ -138,7 +138,11 @@ void loop() {
       Serial.println(new_z);
       
       strike_count = strike_count + 1;
-      delay(1000); // Need to delay until magnetic field has time to turn off, but not long enough for a new field to be induced
+      
+      /* 
+       *  Field turns off when hit is detected; minimal field "off" time is 1 second.
+       *  Thus, need to get a new reference and be waiting sooner than 1 second.
+      */
       
       // Get new reference coordinates
       sensors_event_t event; 
