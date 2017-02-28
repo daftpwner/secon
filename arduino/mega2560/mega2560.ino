@@ -13,6 +13,7 @@
 //#include "utility/Adafruit_PWMServoDriver.h"
 #include <PID_v1.h>
 #include <Servo.h>
+#include <Stepper.h>
 
 // Pin definitions
 // NOTE: pins 0 and 1 reserved for USB TX/RX
@@ -121,14 +122,11 @@ int check_ind1 = 0; // Used to find resistor and forward-biased diode
 int check_ind2 = 0; // Used to find resistor and forward-biased diode
 int open_count = 0; // Open circuit counter; 5 tries = abort
 
-// Stage 3 variables
-char seq[] = "00000";  // decoded sequence
-char cmd_rot[] = "00000";  // commanded rotation sequence
-char res_rot[] = "00000";  // resultant rotation sequence
-int rotate = 0; // number of rotations
-int turn = 0; // rotation direction: 0 = counterclockwise; 1 = clockwise
-unsigned long timer; // stage 3 rotation reference
-unsigned long time_check; // stage 3 rotation duration
+// Stage 3 Variables
+const int stepsPerRevolution = 200; // Steps for one rotation
+Stepper myStepper(stepsPerRevolution, 30, 31, 32, 33); // Initialize stepper library
+int rot_dir = 1; // 0: clockwise; 1: counterclockwise
+int num_rot = 0; // Number of directions to rotate corresponding to each sequence
 
 // Command variables
 String cmd_str;
@@ -685,44 +683,42 @@ void STG3(){
 
     deploy_STG3();
     Serial.println("Begin Stage 3");
-    // grip the knob
-    servo1.write(80);
-    delay(2000);
-    // initiate rotation sequences
+
     for (int m = 0; m < 5; m = m + 1){
-        // set number of rotations for current sequence
-        rotate = pad[m];
-        // alternate rotation direction
-        if (turn == 0){
-            turn = 1;
+
+      // Get number of rotations corresponding to stage 1 code
+      num_rot = pad[m];
+      
+      Serial.print("Rotation Sequence: ");
+      Serial.println(m+1);
+      
+      // alternate rotation direction each sequence
+      if (rot_dir == 1){
+        rot_dir = 0; // clockwise
+        Serial.println("Clockwise");
+      }
+      else{
+        rot_dir = 1; // counter-clockwise
+        Serial.println("Counterclockwise");
+      }
+
+      // Rotate the knob for the correct amount of turns
+      for (int n = 0; n < num_rot; n = n + 1){
+        
+        // Check for correct rotation direction
+        if (rot_dir == 0){
+          myStepper.step(stepsPerRevolution);
+          delay(500);
         }
-        else if (turn == 1){
-            turn = 0;
-        }
-        while (rotate > 0){
-            // intialize timer
-            timer = millis();
-            time_check = millis();
-            // check rotation direction
-            if (turn == 0){
-                // 360 degree counterclockwise rotation
-                while ((time_check -  timer) < 6000){
-                    time_check = millis(); // time since start of rotation
-                    servo2.write(93);
-                }
-            }
-            else{
-                // 360 degree clockwise rotation
-                while ((time_check - timer) < 6000){
-                    time_check = millis(); // time since start of rotation
-                    servo2.write(87);
-                }
-            }
-            servo2.write(90); // pause rotation
-            rotate = rotate - 1; // decrement one rotation sequence
-        }
+        else{
+          myStepper.step(-stepsPerRevolution);
+          delay(500);
+        }  
+      } 
     }
-    servo1.write(0);
+
+    // Code complete
+    Serial.println("Code has been entered!");
     retract_STG3();
     STG_trigger = 0;
   
