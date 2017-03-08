@@ -23,13 +23,13 @@ Servo servo2; // rotation
 
 // Encoder pins
 #define FL_ENC_A 2
-#define FL_ENC_B 52
+#define FL_ENC_B 4
 #define FR_ENC_A 3
-#define FR_ENC_B 51
+#define FR_ENC_B 5
 #define BL_ENC_A 19
-#define BL_ENC_B 15
+#define BL_ENC_B 17
 #define BR_ENC_A 18
-#define BR_ENC_B 4
+#define BR_ENC_B 16
 
 // Bump switch pins
 #define STG1_WALL_SWITCH 22
