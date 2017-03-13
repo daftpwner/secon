@@ -98,6 +98,7 @@ class BrainStateMachine():
             if not self.new_info:
                 return
             else:
+                #rospy.loginfo("New data!")
                 # state contains all state variables
                 state = self.state
                 self.new_info = False
@@ -139,7 +140,7 @@ class BrainStateMachine():
             # wait for start button to be pressed
             if len(state.switches) > 0 and\
                     state.switches[self.switches['Start']]:
-
+                rospy.loginfo("Start button pressed!")
                 self.current_state += 1
             return
 
@@ -147,6 +148,7 @@ class BrainStateMachine():
             # Initialize and start Pinky and wait for clearance
             # self.command_pub.publish(cmd_msg)
             time.sleep(5)
+            rospy.loginfo("Pinky released!")
             self.current_state += 1
             return
 
@@ -156,7 +158,7 @@ class BrainStateMachine():
             # Bump switch hits the wall
             if len(state.switches) > 1 and\
                     state.switches[self.switches['Stage_1_wall']]:
-
+                rospy.loginfo("Reached Stage 1 wall!")
                 self.current_state += 1
                 # x: 0 mm/s y: 0 mm/s z: 0 rad/s
                 cmd_msg.wheel_vels = self.mix_wheel_velocities(0, 0, 0)
@@ -174,7 +176,7 @@ class BrainStateMachine():
             # Bump switch hits stage 1
             if len(state.switches) > 2 and\
                     state.switches[self.switches['Stage_1_alignment']]:
-
+                rospy.loginfo("Reached Stage 1 structure!")
                 self.current_state += 1
                 # Stop
                 # x: 0 mm/s y: 0 mm/s z: 0 rad/s
@@ -184,32 +186,43 @@ class BrainStateMachine():
                 # Keep sliding along wall
                 # Slide along wall
                 # x: -10 mm/s y: 20 mm/s z: 0 rad/s
-                cmd_msg.wheel_vels = self.mix_wheel_velocities(-10, 20, 0)
+                cmd_msg.wheel_vels = self.mix_wheel_velocities(-10, 25, -0.01)
                 self.command_pub.publish(cmd_msg)
+                time.sleep(1)
             return
 
         elif self.states[self.current_state] == "align_to_STG1":
             # Final alignment and connection to Stage 1
             # TODO: make adjustments to position and trigger stage 1
             # Send stage trigger
-            cmd_msg.stg1 = True
+            if not any(state.wheel_vels):
+                cmd_msg.stg1 = False  # True
+            cmd_msg.wheel_vels = self.mix_wheel_velocities(0, 0, 0)
             self.command_pub.publish(cmd_msg)
+            rospy.loginfo("Starting Stage 1!")
+            self.current_state += 1
             return
 
         elif self.states[self.current_state] == "perform_STG1":
             # Trigger Stage 1
             # Invalid sequence
-            if any(['1', '2', '3', '4', '5'] not in state.sequence) and\
+            valid = True
+            for i in '12345':
+                if i not in state.sequence:
+                    valid = False
+            if valid and\
                     not state.sequence != "00000":
-
-                self.current_state -= 1
+                rospy.loginfo("INVALID STAGE! GOT: %s" %state.sequence)
+                self.current_state += 1 #-= 1 # Set to += to skip errors
 
             # No sequence yet
             elif state.sequence == "00000":
+                self.current_state += 1 # Comment out to skip stg1
                 return
 
             # Correct sequence
             else:
+                rospy.loginfo("Stage 1 complete! Got: %s" %state.sequence)
                 self.current_state += 1
 
             return
@@ -219,16 +232,16 @@ class BrainStateMachine():
             # Hit wall
             if len(state.switches) > 3 and\
                     state.switches[self.switches['Stage_3_wall']]:
-
+                rospy.loginfo("Reached Stage 3 wall!")
                 self.current_state += 1
                 # Stop
                 # x: 0 mm/s y: 0 mm/s z: 0 rad/s
                 cmd_msg.wheel_vels = self.mix_wheel_velocities(0, 0, 0)
                 self.command_pub.publish(cmd_msg)
             else:
-            	# Move forwards
-            	# x: 50 mm/s y: 20 mm/s z: 0 rad/s
-                cmd_msg.wheel_vels = self.mix_wheel_velocities(50, 20, 0)
+                # Move forwards
+                # x: 50 mm/s y: 20 mm/s z: 0 rad/s
+                cmd_msg.wheel_vels = self.mix_wheel_velocities(50, 10, 0)
                 self.command_pub.publish(cmd_msg)
 
             return
@@ -238,7 +251,7 @@ class BrainStateMachine():
             # Aligned
             if len(state.switches) > 4 and\
                     state.switches[self.switches['Stage_3_alignment']]:
-
+                rospy.loginfo("Reached Stage 3 structure!")
                 self.current_state += 1
                 # Stop
                 # x: 0 mm/s y: 0 mm/s z: 0 rad/s
@@ -247,38 +260,50 @@ class BrainStateMachine():
             else:
                 # Slide along wall
                 # x: 10 mm/s y: 30 mm/s z: 0 rad/s
-                cmd_msg.wheel_vels = self.mix_wheel_velocities(10, -20, 0)
+                cmd_msg.wheel_vels = self.mix_wheel_velocities(10, -25, -0.01)
                 self.command_pub.publish(cmd_msg)
             return
 
         elif self.states[self.current_state] == "align_to_STG3":
             # Final alignment and connection to Stage 3
             # TODO: make adjustments to position and trigger stage 3
-            cmd_msg.stg3 = True
+            if not any(state.wheel_vels):
+                cmd_msg.stg3 = False  # True
+            rospy.loginfo("Start Stage 3!")
+            cmd_msg.wheel_vels = self.mix_wheel_velocities(0, 0, 0)
             self.command_pub.publish(cmd_msg)
+            self.current_state += 1
             return
 
         elif self.states[self.current_state] == "perform_STG3":
             # Trigger Stage 3
             # Invalid sequence
-            if any(['1', '2', '3', '4', '5'] not in state.rotation_sequence) and\
+            valid = True
+            for i in '12345':
+                if i not in state.rotation_sequence:
+                    valid = False
+            if valid and\
                     not state.sequence != "00000":
-
-                self.current_state -= 1
+                rospy.loginfo("INVALID SEQUENCE! ENTERED: %s" %state.rotation_sequence)
+                self.current_state += 1 # -= 1 # Set to += to skip errors and not retry
                 return
 
             # No sequence yet
             elif state.sequence == "00000":
+                self.current_state += 1 # add to skip stg3
                 return
 
             # Correct sequence
             else:
+                rospy.logerr("Stage 1 Complete! Entered: %s" %state.rotation_sequence)
                 self.current_state += 1
                 return
 
         elif self.states[self.current_state] == "end":
+            rospy.logerr("FINISHED! WOOHOO!")
             # Finished, cease operations
             return
+        return
 
     def reconfigure_callback(self, config, level):
         # Reassigns and resends parameters to Arduino's

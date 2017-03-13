@@ -59,7 +59,7 @@ class EmbeddedInterface():
         self.pinky_port = rospy.get_param(
             "~pinky_serial_port", "/dev/arduinos/pinky")
         # Set callbacks
-        self.brain_cmd_sub = rospy.Subscriber("brain_cmd", BrainCommand, self.command_callback)
+        self.brain_cmd_sub = rospy.Subscriber("brain_commands", BrainCommand, self.command_callback)
         self.brain_param_sub = rospy.Subscriber("brain_parameters", BrainParameters, self.parameter_callback)
         # Set publishers
         self.brain_state_pub = rospy.Publisher("brain_state", BrainState, queue_size=2)

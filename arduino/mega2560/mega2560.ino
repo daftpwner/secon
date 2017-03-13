@@ -217,8 +217,8 @@ void setup() {
     STG_MS.begin();
 
     // Initialize stage 3 servos
-    servo1.attach(10);
-    servo2.attach(9);
+    servo1.attach(9);
+    servo2.attach(10);
     
     // Stop the motors
     servo2.write(90);
@@ -545,6 +545,7 @@ void retract_STG3() {
 
 // Performs Stage 1
 void STG1() {
+    deploy_STG1();
     // Samples PWM peak values and keeps track of sum of all samples
     analogWrite(STG1_PWM, 127); // 50% duty cycle signle PWM input for all test circuits
     delay(100);
@@ -674,13 +675,20 @@ void STG1() {
           Serial.print(pad[m]);
           Serial.print("\n");
         }
-  }
+    retract_STG1();
+    STG_trigger = 0;
 }
 
 
 // Performs Stage 3
 void STG3(){
-
+    // Demo Code REMOVE!!!
+    pad[0] = 1;
+    pad[1] = 1;
+    pad[2] = 0;
+    pad[3] = 0;
+    pad[4] = 0;
+    // Demo Code REMOVE!!!
     deploy_STG3();
     Serial.println("Begin Stage 3");
 
