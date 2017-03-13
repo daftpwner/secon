@@ -48,8 +48,10 @@ class EmbeddedInterface():
 
         # self.pinky_regex = "P:"
         # command string template
-        # x,y,angular velocities; stage 1, 3 triggers
+        # x,y,angular velocities; stage 1, 3, 4 triggers
         self.command_string = "C{fl_wvel:=+05d},{fr_wvel:=+05d},{bl_wvel:=+05d},{br_wvel:=+05d};{STG1},{STG3},{STG4}\n"
+        # C+0000,+0000,+0000,+0000;0,0,0\n
+
         # parameter string template
         self.parameter_string = "P{fl_kp:=+06.2f}{fl_ki:=+06.2f}{fl_kd:=+06.2f}{fr_kp:=+06.2f}{fr_ki:=+06.2f}{fr_kd:=+06.2f}{bl_kp:=+06.2f}{bl_ki:=+06.2f}{bl_kd:=+06.2f}{br_kp:=+06.2f}{br_ki:=+06.2f}{br_kd:=+06.2f}\n"
         # Set parameters

@@ -42,7 +42,7 @@ Servo servo2; // rotation
 #define STOP_SWITCH 27
 
 // Analog pins
-#define STG1_PWM 44
+#define STG1_PWM 9
 #define ADC_TOP A0
 #define ADC_TR A1
 #define ADC_BR A2
