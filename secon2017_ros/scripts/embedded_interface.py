@@ -36,18 +36,20 @@ class EmbeddedInterface():
         # with signs and delimited by ';'
         self.brain_regex_dict = {
             "message": re.compile(
-                "B:sw:[01]*wv:(-?\d+\.\d+;?){4}sq:\d+rt:\d+\n"
+                "B:sw:[01]*wv:(-?\d+\.\d+;?){4}sq:\d+rt:\d+stg4:[01]\n"
             ),
             "switches": re.compile("sw:[01]*"),
             "wvel": re.compile("wv:(-?\d+\.\d+;?){4}"),
             "sequence": re.compile("sq:\d+"),
-            "rotation_sequence": re.compile("rt:\d+\n")
+            "rotation_sequence": re.compile("rt:\d+"),
+            "stage4": re.compile("stg4:[01]\n")
+
         }
 
         # self.pinky_regex = "P:"
         # command string template
         # x,y,angular velocities; stage 1, 3 triggers
-        self.command_string = "C{fl_wvel:=+05d},{fr_wvel:=+05d},{bl_wvel:=+05d},{br_wvel:=+05d};{STG1},{STG3}\n"
+        self.command_string = "C{fl_wvel:=+05d},{fr_wvel:=+05d},{bl_wvel:=+05d},{br_wvel:=+05d};{STG1},{STG3},{STG4}\n"
         # parameter string template
         self.parameter_string = "P{fl_kp:=+06.2f}{fl_ki:=+06.2f}{fl_kd:=+06.2f}{fr_kp:=+06.2f}{fr_ki:=+06.2f}{fr_kd:=+06.2f}{bl_kp:=+06.2f}{bl_ki:=+06.2f}{bl_kd:=+06.2f}{br_kp:=+06.2f}{br_ki:=+06.2f}{br_kd:=+06.2f}\n"
         # Set parameters
@@ -81,7 +83,8 @@ class EmbeddedInterface():
                 "bl_wvel": command.wheel_vels[2],
                 "br_wvel": command.wheel_vels[3],
                 "STG1": int(command.stg1),
-                "STG3": int(command.stg3)
+                "STG3": int(command.stg3),
+                "STG4": int(command.stg4)
             }
 
         with self.brain_port_lock:
@@ -146,11 +149,13 @@ class EmbeddedInterface():
         wvel_msg = self.brain_regex_dict["wvel"].search(msg).group(0)
         seq_msg = self.brain_regex_dict["sequence"].search(msg).group(0)
         rot_msg = self.brain_regex_dict["rotation_sequence"].search(msg).group(0)
+        stg4_msg = self.brain_regex_dict["stage4"].search(msg).group(0)
 
         self.ros_msg.switches = [bool(int(s)) for s in sw_msg[3:]]
         self.ros_msg.wheel_vels = [float(vel) for vel in wvel_msg[3:].split(";")]
         self.ros_msg.sequence = "{:05d}".format(int(seq_msg[3:]))
         self.ros_msg.rotation_sequence = "{:05d}".format(int(rot_msg[3:]))
+        self.ros_msg.stg4 = bool(int(stg4_msg))
 
         self.integrate_odometry()
         self.brain_state_pub.publish(self.ros_msg)

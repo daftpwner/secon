@@ -48,6 +48,8 @@ class BrainStateMachine():
                 "align_to_STG3",
                 "perform_STG3",
 
+                "fire_STG4",
+
                 "end"
             ]
         # Dictionary of switch identities
@@ -57,7 +59,8 @@ class BrainStateMachine():
             "Stage_1_wall": 1,
             "Stage_1_alignment": 2,
             "Stage_3_wall": 3,
-            "Stage_3_alignment": 4
+            "Stage_3_alignment": 4,
+            "E-stop": 5
         }
 
         # Load parameter defaults here
@@ -113,6 +116,7 @@ class BrainStateMachine():
         # 3: Back Right wheel
         # cmd_msg.stg1: Stage 1 Trigger
         # cmd_msg.stg3: Stage 3 Trigger
+        # cmd_msg.stg4: Stage 4 Trigger
         cmd_msg = BrainCommand()
         cmd_msg.header = Header()
         cmd_msg.header.stamp = rospy.Time.now()
@@ -268,7 +272,7 @@ class BrainStateMachine():
             # Final alignment and connection to Stage 3
             # TODO: make adjustments to position and trigger stage 3
             if not any(state.wheel_vels):
-                cmd_msg.stg3 = False  # True
+                cmd_msg.stg3 = True
             rospy.loginfo("Start Stage 3!")
             cmd_msg.wheel_vels = self.mix_wheel_velocities(0, 0, 0)
             self.command_pub.publish(cmd_msg)
@@ -285,12 +289,11 @@ class BrainStateMachine():
             if valid and\
                     not state.sequence != "00000":
                 rospy.loginfo("INVALID SEQUENCE! ENTERED: %s" %state.rotation_sequence)
-                self.current_state += 1 # -= 1 # Set to += to skip errors and not retry
+                self.current_state -= 1 # Set to += to skip errors and not retry
                 return
 
             # No sequence yet
             elif state.sequence == "00000":
-                self.current_state += 1 # add to skip stg3
                 return
 
             # Correct sequence
@@ -298,6 +301,14 @@ class BrainStateMachine():
                 rospy.logerr("Stage 1 Complete! Entered: %s" %state.rotation_sequence)
                 self.current_state += 1
                 return
+
+        elif self.states[self.current_state] == "fire_STG4":
+            if state.stg4 == True:
+                self.current_state += 1
+            if not any(state.wheel_vels):
+                cmd_msg.stg4 = True
+            cmd_msg.wheel_vels = self.mix_wheel_velocities(0, 0, 0)
+            self.command_pub.publish(cmd_msg)
 
         elif self.states[self.current_state] == "end":
             rospy.logerr("FINISHED! WOOHOO!")

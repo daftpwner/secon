@@ -54,6 +54,10 @@ Servo servo2; // rotation
 #define SAMPLE_MS_INTERVAL 1
 int samples[SAMPLES] = {0};
 
+// STG4
+const int STG4_LAUNCHER = 14;
+const int STG4_FEEDER = 15;
+
 // Hardware parameters
 // These are parameters endemic to the hardware and
 // thus do not need dynamic reassignment
@@ -121,16 +125,21 @@ int check_count = 0; // Used to find resistor and forward-biased diode
 int check_ind1 = 0; // Used to find resistor and forward-biased diode
 int check_ind2 = 0; // Used to find resistor and forward-biased diode
 int open_count = 0; // Open circuit counter; 5 tries = abort
+char seq[6] = "00000";
 
 // Stage 3 Variables
 const int stepsPerRevolution = 200; // Steps for one rotation
 Stepper myStepper(stepsPerRevolution, 30, 31, 32, 33); // Initialize stepper library
 int rot_dir = 1; // 0: clockwise; 1: counterclockwise
 int num_rot = 0; // Number of directions to rotate corresponding to each sequence
+char rot_seq[6] = "00000";
+
+// Stage 4 Variables
+int stg4_fin = 0;
 
 // Command variables
 String cmd_str;
-int STG_trigger = 0b00;
+int STG_trigger = 0b000;
 
 // Parameter variables
 // These are parameters that can be changed at runtime via ROS
@@ -212,6 +221,9 @@ void setup() {
     pinMode(ADC_BL, INPUT);
     pinMode(ADC_TL, INPUT);
     
+    pinMode(STG4_LAUNCHER, OUTPUT);
+    pinMode(STG4_FEEDER, OUTPUT);
+
     // Start motor shield
     AFMS.begin();
     STG_MS.begin();
@@ -339,19 +351,19 @@ void loop() {
     receive_str();    
     switch(STG_trigger){
         
-        case (0b00):  // Do nothing
+        case (0b000):  // Do nothing
             break;
     
-        case (0b10):  // Stage 1 trigger
+        case (0b100):  // Stage 1 trigger
             STG1();
             break;
     
-        case (0b01):  // Stage 3 trigger
+        case (0b010):  // Stage 3 trigger
             STG3();
             break;
-    
-        case (0b11):  // ERROR STATE!
-            // handle error here
+        
+        case (0b001):  // Stage 4 trigger
+            STG4();
             break;
             
     }
@@ -385,7 +397,7 @@ void receive_str(){
         cmd_fr_vel = cmd_str.substring(7,12).toFloat();
         cmd_bl_vel = cmd_str.substring(13,18).toFloat();
         cmd_br_vel = cmd_str.substring(19,24).toFloat();
-        STG_trigger = (int)(cmd_str.substring(25).toInt()<<1) | cmd_str.substring(27).toInt();
+        STG_trigger = (int)(cmd_str.substring(25).toInt()<<2) | (cmd_str.substring(27).toInt()<<1) | cmd_str.substring(29).toInt();
     // parameter string
     }else{
         fl_Kp = cmd_str.substring(1,7).toFloat();
@@ -542,7 +554,19 @@ void retract_STG3() {
   STG3_motor->release();
 }
 
+void spinup_STG4() {
+    digitalWrite(STG4_LAUNCHER, HIGH);
+}
 
+void fire_STG4() {
+    digitalWrite(STG4_FEEDER, HIGH);
+    delay(3000);
+    digitalWrite(STG4_FEEDER, LOW);
+}
+
+void spindown_STG4() {
+    digitalWrite(STG4_LAUNCHER, LOW);
+}
 // Performs Stage 1
 void STG1() {
     deploy_STG1();
@@ -669,6 +693,7 @@ void STG1() {
         }
   
         for (int m = 0; m < 5; m = m + 1){
+          seq[m] = (char) pad[m];
           Serial.print("Pad ");
           Serial.print(m);
           Serial.print(" is a ");
@@ -678,17 +703,10 @@ void STG1() {
     retract_STG1();
     STG_trigger = 0;
 }
-
+}
 
 // Performs Stage 3
 void STG3(){
-    // Demo Code REMOVE!!!
-    pad[0] = 1;
-    pad[1] = 1;
-    pad[2] = 0;
-    pad[3] = 0;
-    pad[4] = 0;
-    // Demo Code REMOVE!!!
     deploy_STG3();
     Serial.println("Begin Stage 3");
 
@@ -696,7 +714,7 @@ void STG3(){
 
       // Get number of rotations corresponding to stage 1 code
       num_rot = pad[m];
-      
+      rot_seq[m] = (char) pad[m];
       Serial.print("Rotation Sequence: ");
       Serial.println(m+1);
       
@@ -722,7 +740,8 @@ void STG3(){
           myStepper.step(-stepsPerRevolution);
           delay(500);
         }  
-      } 
+      }
+
     }
 
     // Code complete
@@ -730,6 +749,14 @@ void STG3(){
     retract_STG3();
     STG_trigger = 0;
   
+}
+
+void STG4() {
+    spinup_STG4();
+    delay(250);
+    fire_STG4();
+    spindown_STG4();
+    stg4_fin = 1;
 }
 
 // Check and send statuses including Stage 1 connection validation
@@ -752,16 +779,10 @@ void update_status(){
     Serial.print("sq:");
     Serial.print(seq);
     Serial.print("rt:");
-    Serial.print(res_rot);
+    Serial.print(rot_seq);
+    Serial.print("stg4:");
+    Serial.print(1&stg4_fin);
     Serial.print('\n');
 }
 
-void print_samples(){
-    Serial.print(target_an_pin);
-    for(int i = 0; i<SAMPLES; i++){
-       Serial.print(", ");
-       Serial.print(samples[i]);
-    }
-    Serial.println();
-}
 
