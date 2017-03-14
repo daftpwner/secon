@@ -591,10 +591,25 @@ void STG1() {
           }
         }
         // Read analog pins
-        target_value[0] = analogRead(ADC_TOP); 
+        // Dummy read to switch mux and delay to charge sampling cap
+        analogRead(ADC_TOP);
+        delay(1);
+        target_value[0] = analogRead(ADC_TOP);
+        
+        analogRead(ADC_TR);
+        delay(1);
         target_value[1] = analogRead(ADC_TR);
+
+        analogRead(ADC_BR);
+        delay(1);
         target_value[2] = analogRead(ADC_BR);
+
+        analogRead(ADC_BL);
+        delay(1);
         target_value[3] = analogRead(ADC_BL);
+
+        analogRead(ADC_TL);
+        delay(1);
         target_value[4] = analogRead(ADC_TL);
         
         // update intermediate variables
@@ -606,6 +621,8 @@ void STG1() {
         }
         // increment counter
         sample_count += 1;
+
+        delay(50);
     } // loop end
 
     // successfully sampled
