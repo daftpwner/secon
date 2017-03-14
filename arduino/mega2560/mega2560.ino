@@ -593,34 +593,34 @@ void STG1() {
         // Read analog pins
         // Dummy read to switch mux and delay to charge sampling cap
         analogRead(ADC_TOP);
-        delay(1);
+        delayMicroseconds(50);
         target_value[0] = analogRead(ADC_TOP);
         
         analogRead(ADC_TR);
-        delay(1);
+        delayMicroseconds(50);
         target_value[1] = analogRead(ADC_TR);
 
         analogRead(ADC_BR);
-        delay(1);
+        delayMicroseconds(50);
         target_value[2] = analogRead(ADC_BR);
 
         analogRead(ADC_BL);
-        delay(1);
+        delayMicroseconds(50);
         target_value[3] = analogRead(ADC_BL);
 
         analogRead(ADC_TL);
-        delay(1);
+        delayMicroseconds(50);
         target_value[4] = analogRead(ADC_TL);
         
         // update intermediate variables
         for (int i = 0; i < 5; i++){
           // Add values to total
-          total[i] = total[i] + target_value[i];
+          total[i] += target_value[i];
           // updates peak if target_value is larger, else keeps same value
           peak[i] = ((target_value[i] >= peak[i]) ? target_value[i] : peak[i]);
         }
         // increment counter
-        sample_count += 1;
+        sample_count++;
 
     } // loop end
 
@@ -631,7 +631,7 @@ void STG1() {
       Serial.println("Processing sampled data...");
   
       // Wire pad assignment
-      for (int m = 0; m < 5; m = m + 1){
+      for (int m = 0; m < 5; m++){
         if (peak[m] <= 15){
           wire_ind = m; // wire index
         }
@@ -640,7 +640,7 @@ void STG1() {
       pad[wire_ind] = 1; // wire assignment
   
       // Inductor pad assigment
-      for (int m = 0; m < 5; m = m + 1){ 
+      for (int m = 0; m < 5; m++){ 
         if ((total[m] < min_total) && (m != wire_ind)){
           min_total = total[m];
           ind_ind = m; // inductor index
@@ -650,7 +650,7 @@ void STG1() {
       pad[ind_ind] = 4; // inductor assignment
 
       // Capacitor pad assignment
-      for (int m = 0; m < 5; m = m + 1){ 
+      for (int m = 0; m < 5; m++){ 
         if ((total[m] > max_total) && (m != wire_ind) && (m != ind_ind)){
           max_total = total[m];
           cap_ind = m; // capacitor index
@@ -660,7 +660,7 @@ void STG1() {
       pad[cap_ind] = 3; // capacitor assignment
   
       // Look for reverse-biased diode
-      for (int m = 0; m < 5; m = m + 1){ 
+      for (int m = 0; m < 5; m++){ 
         if ((peak[m] >= 550) && (m != wire_ind) && (m != ind_ind) && (m != cap_ind)){
           pad[m] = 5; // reverse-biased diode assignment
           diode_ind = m; // diode index
@@ -670,7 +670,7 @@ void STG1() {
   
       // Check to see if reverse-biased diode was found
       if (rb_diode == 1){
-        for (int m = 0; m < 5; m = m + 1){
+        for (int m = 0; m < 5; m++){
           if ((m != wire_ind) && (m != ind_ind) && (m != cap_ind) && (m != diode_ind)){
             pad[m] = 2; // resistor assignment
           }
@@ -678,7 +678,7 @@ void STG1() {
       }
         // Otherwise find index of forward-biased diode and resistor
         else{
-          for (int m = 0; m < 5; m = m + 1){
+          for (int m = 0; m < 5; m++){
             if ((m != wire_ind) && (m != ind_ind) && (m != cap_ind)){
               if (check_count == 0){
                 check_ind1 = m; // first unknown component index
@@ -700,7 +700,7 @@ void STG1() {
           }
         }
   
-        for (int m = 0; m < 5; m = m + 1){
+        for (int m = 0; m < 5; m++){
           seq[m] = (char) pad[m];
           Serial.print("Pad ");
           Serial.print(m);
