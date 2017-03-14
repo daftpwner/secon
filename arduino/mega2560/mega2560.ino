@@ -109,23 +109,7 @@ double bl_pwm = 0;
 double br_pwm = 0;
 
 // Stage 1 variables
-int target_value[5] = {0}; // Sampled values for each pad
-int sample_count = 0;
-int peak[5] = {0}; // Five copper pad peaks
-int total[5] = {0}; // Five copper pad totals
 int pad[5] = {0}; // Final copper pad assignment
-int wire_ind = 0; // Wire index placeholder
-int ind_ind = 0; // Inductor index placeholder
-int cap_ind = 0; // Capacitor index placeholder
-int diode_ind = 0; // Diode index placeholder
-int rb_diode = 0; // If diode is found to be reverse-biased: 1
-int min_total = 30000; // Min total used to find inductor
-int max_total = 0; // Max total used to find capacitor
-int check_count = 0; // Used to find resistor and forward-biased diode
-int check_ind1 = 0; // Used to find resistor and forward-biased diode
-int check_ind2 = 0; // Used to find resistor and forward-biased diode
-int open_count = 0; // Open circuit counter; 5 tries = abort
-char seq[6] = "00000";
 
 // Stage 3 Variables
 const int stepsPerRevolution = 200; // Steps for one rotation
@@ -570,53 +554,61 @@ void spindown_STG4() {
 // Performs Stage 1
 void STG1() {
     deploy_STG1();
+    // initialize variables
+    int target_value[5] = {0};
+    int peak[5] = {0};
+    int total[5] = {0};
+    
+    int sample_count = 0;
+    int wire_ind, ind_ind, cap_ind, diode_ind = 0;
+    int rb_diode = 0;
+    int min_total = 30000;
+    int max_total = 0;
+    int check_count, check_ind1, check_ind2 = 0;
+    int open_count = 0;
+    
     // Samples PWM peak values and keeps track of sum of all samples
     analogWrite(STG1_PWM, 127); // 50% duty cycle signle PWM input for all test circuits
-    delay(100);
+    // Delay to clear transients
+    delay(250);
     Serial.println("Beginning sampling.");
+    // collect 1000 samples
     while (sample_count <= 1000){
-        // open circuit check
+      
+        // open circuit check after 500 samples
         if (sample_count == 500){
-          if ((peak[0] > 550) && (peak[1] > 550) && (peak[2] > 550)){
+          if ((peak[0] > 550) && (peak[1] > 550) && (peak[2] > 550) && (peak[3] > 550) && (peak[4] > 550)){
             Serial.println("Open circuit detected");
             Serial.println("Resampling");
             open_count += 1; 
             sample_count = 0;
           }
-          // Too many attempts
+          
+          // Too many attempts, break loop
           if (open_count >= 5){
             Serial.println("Abort");
             break;
           }
         }
+        // Read analog pins
         target_value[0] = analogRead(ADC_TOP); 
         target_value[1] = analogRead(ADC_TR);
         target_value[2] = analogRead(ADC_BR);
         target_value[3] = analogRead(ADC_BL);
         target_value[4] = analogRead(ADC_TL);
-        total[0] = total[0] + target_value[0];
-        total[1] = total[1] + target_value[1];
-        total[2] = total[2] + target_value[2];
-        total[3] = total[3] + target_value[3];
-        total[4] = total[4] + target_value[4];
-        if (target_value[0] >= peak[0]){
-          peak[0] = target_value[0];
-      }
-      if (target_value[1] >= peak[1]){
-          peak[1] = target_value[1];
-      }
-      if (target_value[2] >= peak[2]){
-          peak[2] = target_value[2];
-      }
-      if (target_value[3] >= peak[3]){
-          peak[3] = target_value[3];
-      }
-      if (target_value[4] >= peak[4]){
-          peak[4] = target_value[4];
-      }
-      sample_count += 1;
-    }
+        
+        // update intermediate variables
+        for (int i = 0; i < 5; i++){
+          // Add values to total
+          total[i] = total[i] + target_value[i];
+          // updates peak if target_value is larger, else keeps same value
+          peak[i] = ((target_value[i] >= peak[i]) ? target_value[i] : peak[i]);
+        }
+        // increment counter
+        sample_count += 1;
+    } // loop end
 
+    // successfully sampled
     if (open_count < 5){
 
       // Sampling complete
@@ -710,13 +702,17 @@ void STG3(){
     deploy_STG3();
     Serial.println("Begin Stage 3");
 
+    int rot_dir = 1;
+    int num_rot = 0;
+
     for (int m = 0; m < 5; m = m + 1){
 
       // Get number of rotations corresponding to stage 1 code
       num_rot = pad[m];
-      rot_seq[m] = (char) pad[m];
+      // Log rotation
+      rot_seq[m] = (char) num_rot + 48;
       Serial.print("Rotation Sequence: ");
-      Serial.println(m+1);
+      Serial.println(m+1); // 1-5 instead of 0-4
       
       // alternate rotation direction each sequence
       if (rot_dir == 1){
@@ -729,7 +725,7 @@ void STG3(){
       }
 
       // Rotate the knob for the correct amount of turns
-      for (int n = 0; n < num_rot; n = n + 1){
+      for (int n = 0; n < num_rot; n++){
         
         // Check for correct rotation direction
         if (rot_dir == 0){
@@ -777,7 +773,7 @@ void update_status(){
     Serial.print(";");
     Serial.print(br_vel);
     Serial.print("sq:");
-    Serial.print(seq);
+    Serial.print(pad[0]); Serial.print(pad[1]); Serial.print(pad[2]); Serial.print(pad[3]); Serial.print(pad[4]);
     Serial.print("rt:");
     Serial.print(rot_seq);
     Serial.print("stg4:");
