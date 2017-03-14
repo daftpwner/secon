@@ -622,7 +622,6 @@ void STG1() {
         // increment counter
         sample_count += 1;
 
-        delay(50);
     } // loop end
 
     // successfully sampled
