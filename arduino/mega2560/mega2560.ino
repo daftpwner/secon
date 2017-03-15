@@ -701,7 +701,6 @@ void STG1() {
         }
   
         for (int m = 0; m < 5; m++){
-          seq[m] = (char) pad[m];
           Serial.print("Pad ");
           Serial.print(m);
           Serial.print(" is a ");
@@ -710,7 +709,7 @@ void STG1() {
         }
     retract_STG1();
     STG_trigger = 0;
-}
+  }
 }
 
 // Performs Stage 3
