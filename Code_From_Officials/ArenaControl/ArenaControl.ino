@@ -48,8 +48,8 @@
  */
  
 #include <Adafruit_NeoPixel.h>
-#include <LiquidCrystal_I2C.h>
-#include <MsTimer2.h>
+#include <LiquidCrystal_I2C.h> // This is causing errors for some reason
+#include <MsTimer2.h> // giving me errors
 #include <Wire.h>
 
 #include "Arduino.h"
@@ -59,9 +59,9 @@
 #include "Stage3.h"
 #include "Controller.h"
 
-Stage1 stage1;
+//Stage1 stage1;
 Stage2 stage2;
-Stage3 stage3;
+//Stage3 stage3;
 Controller controller;
 uint32_t startTimestamp = 0;
 
@@ -83,9 +83,9 @@ void setup()
    randomSeed(randomSeedValue);
 
    // Initialize processing for each stage
-   stage1.start();
+   //stage1.start();
    stage2.start();
-   stage3.start();
+   //stage3.start();
 
    // Wait here until the START button is pressed, or return
    //   immediately if there is no LCD
@@ -101,21 +101,22 @@ void loop()
    // If the competition is still running, invoke each stage step (poor man's cooperative tasker)   
    if ((now < MATCH_RUNTIME) && (BTN_STOP != (controller.buttons() & BTN_STOP))) {
       controller.step(now);
-      stage1.step(now);
+      //stage1.step(now);
       stage2.step(now);
-      stage3.step(now);
+      //stage3.step(now);
       
    // Else the competition is over, so stop everything and report the results
    } else {
    
       // Stop all the stage functions
       controller.stop(now);
-      stage1.stop(now);
+      //stage1.stop(now);
       stage2.stop(now);
-      stage3.stop(now);
+      //stage3.stop(now);
  
       // Add up and print the total score (not counting stage 4, which is manual)     
-      score = stage1.score() + stage2.score() + stage3.score();
+      //score = stage1.score() + stage2.score() + stage3.score();
+      score = stage2.score();
       Serial.print("------ RESULTS ------\n");
       Serial.print("FINAL SCORE: ");
       Serial.print(score);
@@ -125,9 +126,9 @@ void loop()
       
       // Print out more detail on each stage
       controller.report(now, score);
-      stage1.report();
+      //stage1.report();
       stage2.report();
-      stage3.report();
+      //stage3.report();
       
       // Wait here forever
       for(;;);
