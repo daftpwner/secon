@@ -1,3 +1,5 @@
+
+
 /*
  * This code is uploaded on the Arduino UNO for Pinky functionality.
  * 
@@ -12,11 +14,11 @@
 #include <Servo.h> 
 
 // Wheels
-Servo servo1; // Right wheel
-Servo servo2; // Left wheel
+//Servo servo1; // Right wheel
+//Servo servo2; // Left wheel
 
 // Hit Stick
-Servo servo3;
+//Servo servo3;
 
 // Bump Switch 
 #define BUMP_SWITCH 2
@@ -51,19 +53,19 @@ void setup() {
   delay(500);
   
   // attach servos
-  servo3.attach(7);
-  servo2.attach(9);
-  servo1.attach(10);
+  //servo3.attach(7);
+  //servo2.attach(9);
+  //servo1.attach(10);
 
   // initialize bump switch
   pinMode(BUMP_SWITCH, INPUT_PULLUP);
 
   // Initialize hit stick
-  servo3.write(180);
+  //servo3.write(180);
 
   // Stop wheels
-  servo2.write(90);
-  servo1.write(90);
+  //servo2.write(90);
+  //servo1.write(90);
 
 }
 
@@ -77,24 +79,24 @@ void loop() {
   // Drive to Stage 2
   while (digitalRead(BUMP_SWITCH) == HIGH){
     // Drive to Stage 2
-    servo2.write(97);
-    servo1.write(83);
+    //servo2.write(97);
+    //servo1.write(83);
   }
 
   // Stage 2 reached, stop driving
-  servo2.write(90);
-  servo1.write(90);
+  //servo2.write(90);
+  //servo1.write(90);
 
   Serial.print("Stage 2 Reached");
   Serial.print("\n");
   
   // First of five strikes
-  servo3.write(102);
+  //servo3.write(102);
   Serial.print("Swinging once");
   Serial.print("\n");
   delay(250);
-  servo3.write(130); // come back
-  delay(250);
+  //servo3.write(130); // come back
+  //delay(250);
   
   // Get reference coordinates
   sensors_event_t event; 
@@ -123,11 +125,11 @@ void loop() {
     
     // check coordinates to see if there is a variation of at least 3; 3 was chosen arbitrary
     if ((ref_x < new_x - 3) || (ref_x > new_x + 3) || (ref_y < new_y - 3) || (ref_y > new_y + 3) || (ref_z < new_z - 3) || (ref_z > new_z + 3)){
-      servo3.write(102); // strike
-      delay(250);
-      servo3.write(130); // pull back
+      //servo3.write(102); // strike
+      //delay(250);
+      //servo3.write(130); // pull back
       Serial.println("Strike Occurred");
-      delay(250);
+      //delay(250);
       
       Serial.println("Field Change: ");
       Serial.print("X: ");
