@@ -50,9 +50,8 @@ Servo servo2; // rotation
 #define ADC_TL A7
 
 // STG1
-#define SAMPLES 250
-#define SAMPLE_MS_INTERVAL 1
-int samples[SAMPLES] = {0};
+const int SAMPLES = 10000;
+int seq[5] = {0};
 
 // STG4
 const int STG4_LAUNCHER = 14;
@@ -67,106 +66,82 @@ const int ENC_PER_REV = 810; // encoder pulses per motor output revolution
 // Variable initialization
 // NOTE: use volatile for non-constant data lest the compiler hardcode it!
 
-// Motor variables
-// time for encoder velocity calculation
-volatile int prev_time = 0;
-volatile int cur_time = 0;
-
-// encoder counts
-volatile int fl_enc = 0;
-volatile int fr_enc = 0;
-volatile int bl_enc = 0;
-volatile int br_enc = 0;
-
-// containers for rolling encoder velocity averages
-double fl_enc_vels[5] = { 0, 0, 0, 0, 0 };
-double fr_enc_vels[5] = { 0, 0, 0, 0, 0 };
-double bl_enc_vels[5] = { 0, 0, 0, 0, 0 };
-double br_enc_vels[5] = { 0, 0, 0, 0, 0 };
-
-// pointer to "next" index location in velocity arrays
-uint8_t fl_index = 0;
-uint8_t fr_index = 0;
-uint8_t bl_index = 0;
-uint8_t br_index = 0;
-
-// wheel velocities ( mm/s! not m/s! )
-double fl_vel = 0;  // mm/s! not m/s! 
-double fr_vel = 0;  // mm/s! not m/s! 
-double bl_vel = 0;  // mm/s! not m/s! 
-double br_vel = 0;  // mm/s! not m/s! 
-
-// commanded wheel velocities ( mm/s! not m/s! )
-double cmd_fl_vel = 0;  // mm/s! not m/s! 
-double cmd_fr_vel = 0;  // mm/s! not m/s! 
-double cmd_bl_vel = 0;  // mm/s! not m/s! 
-double cmd_br_vel = 0;  // mm/s! not m/s!
-
-// PWM command
-double fl_pwm = 0;
-double fr_pwm = 0;
-double bl_pwm = 0;
-double br_pwm = 0;
-
-// Stage 1 variables
-int pad[5] = {0}; // Final copper pad assignment
-
-// Stage 3 Variables
-const int stepsPerRevolution = 200; // Steps for one rotation
-Stepper myStepper(stepsPerRevolution, 30, 31, 32, 33); // Initialize stepper library
-int rot_dir = 1; // 0: clockwise; 1: counterclockwise
-int num_rot = 0; // Number of directions to rotate corresponding to each sequence
-char rot_seq[6] = "00000";
-
-// Stage 4 Variables
-int stg4_fin = 0;
 
 // Command variables
 String cmd_str;
 int STG_trigger = 0b000;
 
-// Parameter variables
-// These are parameters that can be changed at runtime via ROS
+// Stage 1 variables
+int pad[5] = {0}; // Final copper pad assignment
+// Stage 3 Variables
+const int STEP_PER_REV = 200;
+Stepper STG3_rotation_stepper(STEP_PER_REV, A11, A12, A13, A14); // Initialize stepper library
+int rot_seq[5] = {0};
 
-// Front Left wheel
-double fl_Kp = 1.4; // Proportional gain 
-double fl_Ki = 6.0; // Integral gain 
-double fl_Kd = 0.1; // Derivative gain 
+// Stage 4 Variables
+int stg4_fin = 0;
 
+
+/*******************
+ * Motor variables *
+ *******************/
+volatile int prev_time = 0; //  Time  //
+volatile int cur_time = 0;  // Stamps //
+volatile int fl_enc = 0; /////////////
+volatile int fr_enc = 0; // Encoder //
+volatile int bl_enc = 0; //  Counts //
+volatile int br_enc = 0; /////////////
+double fl_enc_vels[5] = { 0, 0, 0, 0, 0 }; //////////////
+double fr_enc_vels[5] = { 0, 0, 0, 0, 0 }; // Velocity //
+double bl_enc_vels[5] = { 0, 0, 0, 0, 0 }; // Averages //
+double br_enc_vels[5] = { 0, 0, 0, 0, 0 }; //////////////
+uint8_t fl_index = 0; ////////////////////
+uint8_t fr_index = 0; // Velocity Array //
+uint8_t bl_index = 0; // Index Pointers //
+uint8_t br_index = 0; ////////////////////
+double fl_vel = 0;  ////////////////
+double fr_vel = 0;  // Velocities //
+double bl_vel = 0;  //  (mm/sec)  //
+double br_vel = 0;  ////////////////
+double cmd_fl_vel = 0;  ////////////////////////
+double cmd_fr_vel = 0;  // Command Velocities //
+double cmd_bl_vel = 0;  //      (mm/sec)      //
+double cmd_br_vel = 0;  ////////////////////////
+double fl_pwm = 0; //////////////
+double fr_pwm = 0; //   PWM    //
+double bl_pwm = 0; // Commands //
+double br_pwm = 0; //////////////
+double fl_Kp = 1.4; ////////////////////
+double fl_Ki = 6.0; // Front Left PID //
+double fl_Kd = 0.1; ////////////////////
 // Front Right wheel
-double fr_Kp = 1.4; // Proportional gain
-double fr_Ki = 6.0; // Integral gain
-double fr_Kd = 0.1; // Derivative gain
-
+double fr_Kp = 1.4; /////////////////////
+double fr_Ki = 6.0; // Front Right PID //
+double fr_Kd = 0.1; /////////////////////
 // Back Left wheel
-double bl_Kp = 1.4; // Proportional gain
-double bl_Ki = 6.0; // Integral gain
-double bl_Kd = 0.1; // Derivative gain
-
+double bl_Kp = 1.4; ///////////////////
+double bl_Ki = 6.0; // Back Left PID //
+double bl_Kd = 0.1; ///////////////////
 // Back Right wheel
-double br_Kp = 1.4; // 1 Proportional gain
-double br_Ki = 6.0; // 50 Integral gain
-double br_Kd = 0.1; // 0.01 Derivative gain
+double br_Kp = 1.4; ////////////////////
+double br_Ki = 6.0; // Back Right PID //
+double br_Kd = 0.1; ////////////////////
+Adafruit_MotorShield AFMS = Adafruit_MotorShield(0x61); // Drive Motor Shield
+Adafruit_DCMotor *FL_mot = AFMS.getMotor(1); ////////////
+Adafruit_DCMotor *FR_mot = AFMS.getMotor(2); //  Drive //
+Adafruit_DCMotor *BL_mot = AFMS.getMotor(3); // Motors //
+Adafruit_DCMotor *BR_mot = AFMS.getMotor(4); ////////////
+PID FL_PID(&fl_vel, &fl_pwm, &cmd_fl_vel, fl_Kp, fl_Ki, fl_Kd, DIRECT); ///////////
+PID FR_PID(&fr_vel, &fr_pwm, &cmd_fr_vel, fr_Kp, fr_Ki, fr_Kd, DIRECT); // Motor //
+PID BL_PID(&bl_vel, &bl_pwm, &cmd_bl_vel, bl_Kp, bl_Ki, bl_Kd, DIRECT); //  PID  //
+PID BR_PID(&br_vel, &br_pwm, &cmd_br_vel, br_Kp, br_Ki, br_Kd, DIRECT); ///////////
+Adafruit_MotorShield STG_MS = Adafruit_MotorShield(0x60); // Stage Carriage Stepper Shield
+Adafruit_StepperMotor *STG1_motor = STG_MS.getStepper(200, 1); //   Stage  //
+Adafruit_StepperMotor *STG3_motor = STG_MS.getStepper(200, 2); // Steppers //
 
-// Drive Motor shield
-Adafruit_MotorShield AFMS = Adafruit_MotorShield(0x61);
-Adafruit_DCMotor *FL_mot = AFMS.getMotor(1);
-Adafruit_DCMotor *FR_mot = AFMS.getMotor(2);
-Adafruit_DCMotor *BL_mot = AFMS.getMotor(3);
-Adafruit_DCMotor *BR_mot = AFMS.getMotor(4);
-
-// PIDs
-PID FL_PID(&fl_vel, &fl_pwm, &cmd_fl_vel, fl_Kp, fl_Ki, fl_Kd, DIRECT);
-PID FR_PID(&fr_vel, &fr_pwm, &cmd_fr_vel, fr_Kp, fr_Ki, fr_Kd, DIRECT);
-PID BL_PID(&bl_vel, &bl_pwm, &cmd_bl_vel, bl_Kp, bl_Ki, bl_Kd, DIRECT);
-PID BR_PID(&br_vel, &br_pwm, &cmd_br_vel, br_Kp, br_Ki, br_Kd, DIRECT);
-
-// Stage arm motor shield
-Adafruit_MotorShield STG_MS = Adafruit_MotorShield(0x60);
-
-Adafruit_StepperMotor *STG1_motor = STG_MS.getStepper(200, 1);
-Adafruit_StepperMotor *STG3_motor = STG_MS.getStepper(200, 2);
-
+/*********
+ * Setup *
+ *********/
 void setup() {
     // USB port setup
     Serial.begin(115200);
@@ -244,93 +219,9 @@ void setup() {
     
 }
 
-// Handles Front Left motor interrupt
-void FL_A() {
-    
-    cli();  //stop interrupts during routine
-    static volatile int enc;
-    // Reads the two pins and xors them
-    enc = ((PINE & (1<<PE4))>>4) ^ ((PINB & (1<<PB1))>>1);
-    //enc = digitalRead(FL_ENC_A) ^ digitalRead(FL_ENC_B);
-    switch(enc){
-        
-        case (0b1):  // CW Forward
-            fl_enc ++;
-            break;
-        
-        case (0b0):  // CCW Backwards
-            fl_enc --;
-            break;
-    sei();
-    }
-}
-
-// Handles Front Right motor interrupt
-void FR_A() {
-  
-    cli();  //stop interrupts during routine
-    static int enc;
-    // Reads the two pins and xors them
-    enc = ((PINE & (1<<PE5))>>5) ^ ((PINB & (1<<PB2))>>2);
-    //enc = digitalRead(FR_ENC_A) ^ digitalRead(FR_ENC_B);
-  
-    switch(enc){
-  
-        case (0b1):  // CW Backwards
-            fr_enc --;
-            break;
-      
-        case (0b0):  // CCW Forwards
-            fr_enc ++;
-            break;
-    sei();
-    }
-}
-
-// Handles Back Left motor interrupt
-void BL_A() {
-  
-    cli();  //stop interrupts during routine
-    static int enc;
-    // Reads the two pins and xors them
-    enc = ((PIND & (1<<PD2))>>2) ^ ((PINJ & (1<<PJ0)) >> 0);
-    //enc = digitalRead(BL_ENC_A) ^ digitalRead(BL_ENC_B);
-  
-    switch(enc){
-  
-        case (0b1):  // CW Forwards
-            bl_enc ++;
-            break;
-  
-        case (0b0):  // CCW Backwards
-            bl_enc --;
-            break;
-    sei();
-    }
-}
-
-// Handles Back Right motor interrupt
-void BR_A() {
-  
-    cli();  //stop interrupts during routine
-    static int enc;
-    // Reads the two pins and xors them
-    enc = ((PIND & (1<<PD3))>>3) ^ ((PING & (1<<PG5))>>5);
-    //enc = digitalRead(BR_ENC_A) ^ digitalRead(BR_ENC_B);
-  
-    switch(enc){
-    
-        case (0b1):  // CW Backwards
-            br_enc --;
-            break;
-  
-        case (0b0):  // CCW Forwards
-            br_enc ++;
-            break;
-    sei();
-    }
-}
-
+/*************
+ * Main Loop *
+ *************/
 void loop() {
     receive_str();    
     switch(STG_trigger){
@@ -364,9 +255,9 @@ void loop() {
     
 
 }
-
-// receive and process command/parameter-reassignment strings
-// updates relevant command/parameter variables
+/***************
+ *  Serial In  *
+ ***************/
 void receive_str(){
     
     // Get next string
@@ -406,7 +297,218 @@ void receive_str(){
     }
 }
 
-// updates motor PID's and sends velocity commands
+/*************
+ *  Stage 1  *
+ *************/
+// Stage 1
+void STG1(){
+  deploy_STG1();
+
+  perform_STG1(seq);
+
+  retract_STG1();
+  
+  STG_trigger = 0;
+}
+// Deploy Stage 1 arm
+void deploy_STG1() {
+
+    STG1_motor->step(195,BACKWARD,MICROSTEP);
+}
+// Retract Stage 1 arm
+void retract_STG1() {
+
+  STG1_motor->step(195,FORWARD,MICROSTEP);
+  STG1_motor->release();
+}
+// Sample analog pin
+void sample_pin(int an_pin, double* max_val, double* avg) {
+  uint16_t count = 0;
+  *avg = 0;
+  *max_val = 0;
+  analogRead(an_pin);
+  while(count++ < SAMPLES) {
+    double val = analogRead(an_pin);
+    *avg += val;
+    *max_val = (*max_val>=val) ? *max_val : val;
+  }
+  *avg = *avg/((double) SAMPLES);
+}
+// Sample and determine sequence
+void perform_STG1(int seq[]) {
+  // Start PWM
+  // allocate variables
+  double max_val[5] = {0};
+  double avg[5] = {0};
+  delay(10);
+  // Sample pads
+  analogWrite(STG1_PWM,127);
+  sample_pin(ADC_TOP, &max_val[0], &avg[0]);
+  analogWrite(STG1_PWM,0);
+  delay(100);
+  analogWrite(STG1_PWM,127);
+  sample_pin(ADC_TR, &max_val[1], &avg[1]);
+  analogWrite(STG1_PWM,0);
+  delay(100);
+  analogWrite(STG1_PWM,127);
+  sample_pin(ADC_BR, &max_val[2], &avg[2]);
+  analogWrite(STG1_PWM,0);
+  delay(100);
+  analogWrite(STG1_PWM,127);
+  sample_pin(ADC_BL, &max_val[3], &avg[3]);
+  analogWrite(STG1_PWM,0);
+  delay(100);
+  analogWrite(STG1_PWM,127);
+  sample_pin(ADC_TL, &max_val[4], &avg[4]);
+  analogWrite(STG1_PWM,0);
+
+  // Evaluate
+  int wire = -1;
+  int res = -1;
+  int cap = -1;
+  int ind = -1;
+  int diode = -1;
+
+  // Find wire
+  for(int i = 0;i<5;i++){
+    if ((avg[i]<10)&&(max_val[i]<10)){
+      wire = i;
+      seq[i] = 1;
+    }
+  }
+  // Find cap
+  for(int i=0;i<5;i++){
+    if ((avg[i]<30)&&(avg[i]>10) && (max_val[i]<75)){
+      cap = i;
+      seq[i] = 3;
+    }
+  }
+  // Find FB-diode
+  for(int i=0;i<5;i++){
+    if ((avg[i]>50)&&(avg[i]<70)&&(max_val[i]<150)&&(max_val[i]>75)){
+      diode = i;
+      seq[i] = 5;
+    }
+  }
+  // Find Resistor
+  for(int i=0;i<5;i++){
+    if ((avg[i]>65)&&(avg[i]<80)&&(max_val[i]<250)&&(max_val[i]>190)){
+      res = i;
+      seq[i] = 2;
+    }
+  }
+  // Find Inductor
+  for(int i=0;i<5;i++){
+    if ((avg[i]>70)&&(avg[i]<80)&&(max_val[i]>250)){
+      ind = i;
+      seq[i] = 4;
+    }
+  }
+  // Find RB-diode
+  for( int i=0;i<5;i++){
+    if (seq[i]==0){
+      diode = i;
+      seq[i] = 5;
+    }
+  }
+}
+
+/*************
+ *  Stage 1  *
+ *************/
+// Stage 3
+void STG3(){
+  deploy_STG3();
+  Serial.println("Begin Stage 3");
+  perform_STG3();
+  Serial.println("Complete Stage 3");
+  retract_STG3();
+  STG_trigger = 0;
+}
+// Deploy Stage 3 arm
+void deploy_STG3() {
+
+    STG3_motor->step(140,FORWARD,MICROSTEP);
+}
+// Retract Stage 3 arm
+void retract_STG3() {
+
+  STG3_motor->step(140,BACKWARD,MICROSTEP);
+  STG3_motor->release();
+}
+// Perform Stage 3
+void perform_STG3(){
+  int rot_dir = 0;
+
+  for (int m = 0; m < 5; m = m + 1){
+    Serial.print("Rotation Sequence: ");
+    Serial.println(m+1); // 1-5 instead of 0-4
+    (rot_dir == 1) ? Serial.print("Clockwise: ") : Serial.print("Counter-Clockwise: ");
+    Serial.println(seq[m]);
+    
+    STG3_rotation_stepper.step((-1**rot_dir)*stepsPerRevolution*seq[m]); // rotate seq[m] revolutions c/cw
+    rot_dir = (rot_dir == 0); // toggle between 1 and 0
+  }
+}
+
+/*************
+ *  Stage 1  *
+ *************/
+// Stage 4
+void STG4() {
+    spinup_STG4();
+    delay(250);
+    fire_STG4();
+    spindown_STG4();
+    stg4_fin = 1;
+    STG_trigger = 0;
+}
+void spinup_STG4() {
+    digitalWrite(STG4_LAUNCHER, HIGH);
+}
+void fire_STG4() {
+    digitalWrite(STG4_FEEDER, HIGH);
+    delay(3000);
+    digitalWrite(STG4_FEEDER, LOW);
+}
+void spindown_STG4() {
+    digitalWrite(STG4_LAUNCHER, LOW);
+}
+
+
+/****************
+ *  Serial Out  *
+ ****************/
+// Check and send statuses including Stage 1 connection validation
+void update_status(){
+    Serial.print("B:sw:");
+    Serial.print(1^digitalRead(START_SWITCH));
+    Serial.print(1^digitalRead(STG1_WALL_SWITCH));
+    Serial.print(1^digitalRead(STG1_ALIGN_SWITCH));
+    Serial.print(1^digitalRead(STG3_WALL_SWITCH));
+    Serial.print(1^digitalRead(STG3_ALIGN_SWITCH));
+    Serial.print(1^digitalRead(STOP_SWITCH));
+    Serial.print("wv:");
+    Serial.print(fl_vel);
+    Serial.print(";");
+    Serial.print(fr_vel);
+    Serial.print(";");
+    Serial.print(bl_vel);
+    Serial.print(";");
+    Serial.print(br_vel);
+    Serial.print("sq:");
+    Serial.print(seq[0]); Serial.print(seq[1]); Serial.print(seq[2]); Serial.print(seq[3]); Serial.print(seq[4]);
+    Serial.print("rt:");
+    Serial.print(rot_seq);
+    Serial.print("stg4:");
+    Serial.print(1&stg4_fin);
+    Serial.print('\n');
+}
+
+/*******************
+ *  Drive Control  *
+ *******************/
+// Set drive PWM commands
 void cmd_motors() {
   
     update_motor_vel();
@@ -450,10 +552,8 @@ void cmd_motors() {
     else{
         BR_mot->run(FORWARD);
     }
-    
 }
-
-// reads encoder values and updates motor velocity ( in mm/s! )
+// update motor velocity measurements
 void update_motor_vel() {
   
     // CW is forward for right side, CCW for left
@@ -509,291 +609,86 @@ void update_motor_vel() {
         br_vel += br_enc_vels[i]/5.0;
     }
 }
-
-// Deploy Stage 1 arm
-void deploy_STG1() {
-
-    STG1_motor->step(156,BACKWARD,MICROSTEP);
-    delay(200);
-}
-
-// Retract Stage 1 arm
-void retract_STG1() {
-
-  STG1_motor->step(156,FORWARD,MICROSTEP);
-  STG1_motor->release();
-}
-
-
-// Deploy Stage 3 arm
-void deploy_STG3() {
-
-    STG3_motor->step(140,FORWARD,MICROSTEP);
-}
-
-// Retract Stage 3 arm
-void retract_STG3() {
-
-  STG3_motor->step(140,BACKWARD,MICROSTEP);
-  STG3_motor->release();
-}
-
-void spinup_STG4() {
-    digitalWrite(STG4_LAUNCHER, HIGH);
-}
-
-void fire_STG4() {
-    digitalWrite(STG4_FEEDER, HIGH);
-    delay(3000);
-    digitalWrite(STG4_FEEDER, LOW);
-}
-
-void spindown_STG4() {
-    digitalWrite(STG4_LAUNCHER, LOW);
-}
-// Performs Stage 1
-void STG1() {
-    deploy_STG1();
-    // initialize variables
-    int target_value[5] = {0};
-    int peak[5] = {0};
-    int total[5] = {0};
+// Handles Front Left motor interrupt
+void FL_A() {
     
-    int sample_count = 0;
-    int wire_ind, ind_ind, cap_ind, diode_ind = 0;
-    int rb_diode = 0;
-    int min_total = 30000;
-    int max_total = 0;
-    int check_count, check_ind1, check_ind2 = 0;
-    int open_count = 0;
-    
-    // Samples PWM peak values and keeps track of sum of all samples
-    analogWrite(STG1_PWM, 127); // 50% duty cycle signle PWM input for all test circuits
-    // Delay to clear transients
-    delay(250);
-    Serial.println("Beginning sampling.");
-    // collect 1000 samples
-    while (sample_count <= 1000){
-      
-        // open circuit check after 500 samples
-        if (sample_count == 500){
-          if ((peak[0] > 550) && (peak[1] > 550) && (peak[2] > 550) && (peak[3] > 550) && (peak[4] > 550)){
-            Serial.println("Open circuit detected");
-            Serial.println("Resampling");
-            open_count += 1; 
-            sample_count = 0;
-          }
-          
-          // Too many attempts, break loop
-          if (open_count >= 5){
-            Serial.println("Abort");
+    cli();  //stop interrupts during routine
+    static volatile int enc;
+    // Reads the two pins and xors them
+    enc = ((PINE & (1<<PE4))>>4) ^ ((PINB & (1<<PB1))>>1);
+    //enc = digitalRead(FL_ENC_A) ^ digitalRead(FL_ENC_B);
+    switch(enc){
+        
+        case (0b1):  // CW Forward
+            fl_enc ++;
             break;
-          }
-        }
-        // Read analog pins
-        // Dummy read to switch mux and delay to charge sampling cap
-        analogRead(ADC_TOP);
-        delayMicroseconds(50);
-        target_value[0] = analogRead(ADC_TOP);
         
-        analogRead(ADC_TR);
-        delayMicroseconds(50);
-        target_value[1] = analogRead(ADC_TR);
-
-        analogRead(ADC_BR);
-        delayMicroseconds(50);
-        target_value[2] = analogRead(ADC_BR);
-
-        analogRead(ADC_BL);
-        delayMicroseconds(50);
-        target_value[3] = analogRead(ADC_BL);
-
-        analogRead(ADC_TL);
-        delayMicroseconds(50);
-        target_value[4] = analogRead(ADC_TL);
-        
-        // update intermediate variables
-        for (int i = 0; i < 5; i++){
-          // Add values to total
-          total[i] += target_value[i];
-          // updates peak if target_value is larger, else keeps same value
-          peak[i] = ((target_value[i] >= peak[i]) ? target_value[i] : peak[i]);
-        }
-        // increment counter
-        sample_count++;
-
-    } // loop end
-
-    // successfully sampled
-    if (open_count < 5){
-
-      // Sampling complete
-      Serial.println("Processing sampled data...");
-  
-      // Wire pad assignment
-      for (int m = 0; m < 5; m++){
-        if (peak[m] <= 15){
-          wire_ind = m; // wire index
-        }
-      }
-  
-      pad[wire_ind] = 1; // wire assignment
-  
-      // Inductor pad assigment
-      for (int m = 0; m < 5; m++){ 
-        if ((total[m] < min_total) && (m != wire_ind)){
-          min_total = total[m];
-          ind_ind = m; // inductor index
-        }
-      }
-  
-      pad[ind_ind] = 4; // inductor assignment
-
-      // Capacitor pad assignment
-      for (int m = 0; m < 5; m++){ 
-        if ((total[m] > max_total) && (m != wire_ind) && (m != ind_ind)){
-          max_total = total[m];
-          cap_ind = m; // capacitor index
-        }
-      }
-  
-      pad[cap_ind] = 3; // capacitor assignment
-  
-      // Look for reverse-biased diode
-      for (int m = 0; m < 5; m++){ 
-        if ((peak[m] >= 550) && (m != wire_ind) && (m != ind_ind) && (m != cap_ind)){
-          pad[m] = 5; // reverse-biased diode assignment
-          diode_ind = m; // diode index
-          rb_diode = 1; // diode was reverse-biased and found
-        }
-      }
-  
-      // Check to see if reverse-biased diode was found
-      if (rb_diode == 1){
-        for (int m = 0; m < 5; m++){
-          if ((m != wire_ind) && (m != ind_ind) && (m != cap_ind) && (m != diode_ind)){
-            pad[m] = 2; // resistor assignment
-          }
-        }
-      }
-        // Otherwise find index of forward-biased diode and resistor
-        else{
-          for (int m = 0; m < 5; m++){
-            if ((m != wire_ind) && (m != ind_ind) && (m != cap_ind)){
-              if (check_count == 0){
-                check_ind1 = m; // first unknown component index
-                check_count = 1;
-              }
-              else{
-                check_ind2 = m; // second unknown component index
-              }
-            }
-          }
-          // Resistor and forward-biased diode assignment
-          if (peak[check_ind1] > peak[check_ind2]){
-            pad[check_ind1] = 2; // resistor assignment, larger peak
-            pad[check_ind2] = 5; // forward-biased diode assignment, smaller peak
-          }
-          else{
-            pad[check_ind1] = 5; // forward-biased diode assignment, smaller peak
-            pad[check_ind2] = 2; // resistor assignment, larger peak
-          }
-        }
-  
-        for (int m = 0; m < 5; m++){
-          Serial.print("Pad ");
-          Serial.print(m);
-          Serial.print(" is a ");
-          Serial.print(pad[m]);
-          Serial.print("\n");
-        }
-    retract_STG1();
-    STG_trigger = 0;
-  }
-}
-
-// Performs Stage 3
-void STG3(){
-    deploy_STG3();
-    Serial.println("Begin Stage 3");
-
-    int rot_dir = 1;
-    int num_rot = 0;
-
-    for (int m = 0; m < 5; m = m + 1){
-
-      // Get number of rotations corresponding to stage 1 code
-      num_rot = pad[m];
-      // Log rotation
-      rot_seq[m] = (char) num_rot + 48;
-      Serial.print("Rotation Sequence: ");
-      Serial.println(m+1); // 1-5 instead of 0-4
-      
-      // alternate rotation direction each sequence
-      if (rot_dir == 1){
-        rot_dir = 0; // clockwise
-        Serial.println("Clockwise");
-      }
-      else{
-        rot_dir = 1; // counter-clockwise
-        Serial.println("Counterclockwise");
-      }
-
-      // Rotate the knob for the correct amount of turns
-      for (int n = 0; n < num_rot; n++){
-        
-        // Check for correct rotation direction
-        if (rot_dir == 0){
-          myStepper.step(stepsPerRevolution);
-          delay(500);
-        }
-        else{
-          myStepper.step(-stepsPerRevolution);
-          delay(500);
-        }  
-      }
-
+        case (0b0):  // CCW Backwards
+            fl_enc --;
+            break;
+    sei();
     }
-
-    // Code complete
-    Serial.println("Code has been entered!");
-    retract_STG3();
-    STG_trigger = 0;
+}
+// Handles Front Right motor interrupt
+void FR_A() {
   
+    cli();  //stop interrupts during routine
+    static int enc;
+    // Reads the two pins and xors them
+    enc = ((PINE & (1<<PE5))>>5) ^ ((PINB & (1<<PB2))>>2);
+    //enc = digitalRead(FR_ENC_A) ^ digitalRead(FR_ENC_B);
+  
+    switch(enc){
+  
+        case (0b1):  // CW Backwards
+            fr_enc --;
+            break;
+      
+        case (0b0):  // CCW Forwards
+            fr_enc ++;
+            break;
+    sei();
+    }
 }
-
-void STG4() {
-    spinup_STG4();
-    delay(250);
-    fire_STG4();
-    spindown_STG4();
-    stg4_fin = 1;
+// Handles Back Left motor interrupt
+void BL_A() {
+  
+    cli();  //stop interrupts during routine
+    static int enc;
+    // Reads the two pins and xors them
+    enc = ((PIND & (1<<PD2))>>2) ^ ((PINJ & (1<<PJ0)) >> 0);
+    //enc = digitalRead(BL_ENC_A) ^ digitalRead(BL_ENC_B);
+  
+    switch(enc){
+  
+        case (0b1):  // CW Forwards
+            bl_enc ++;
+            break;
+  
+        case (0b0):  // CCW Backwards
+            bl_enc --;
+            break;
+    sei();
+    }
 }
-
-// Check and send statuses including Stage 1 connection validation
-void update_status(){
-    Serial.print("B:sw:");
-    Serial.print(1^digitalRead(START_SWITCH));
-    Serial.print(1^digitalRead(STG1_WALL_SWITCH));
-    Serial.print(1^digitalRead(STG1_ALIGN_SWITCH));
-    Serial.print(1^digitalRead(STG3_WALL_SWITCH));
-    Serial.print(1^digitalRead(STG3_ALIGN_SWITCH));
-    Serial.print(1^digitalRead(STOP_SWITCH));
-    Serial.print("wv:");
-    Serial.print(fl_vel);
-    Serial.print(";");
-    Serial.print(fr_vel);
-    Serial.print(";");
-    Serial.print(bl_vel);
-    Serial.print(";");
-    Serial.print(br_vel);
-    Serial.print("sq:");
-    Serial.print(pad[0]); Serial.print(pad[1]); Serial.print(pad[2]); Serial.print(pad[3]); Serial.print(pad[4]);
-    Serial.print("rt:");
-    Serial.print(rot_seq);
-    Serial.print("stg4:");
-    Serial.print(1&stg4_fin);
-    Serial.print('\n');
+// Handles Back Right motor interrupt
+void BR_A() {
+  
+    cli();  //stop interrupts during routine
+    static int enc;
+    // Reads the two pins and xors them
+    enc = ((PIND & (1<<PD3))>>3) ^ ((PING & (1<<PG5))>>5);
+    //enc = digitalRead(BR_ENC_A) ^ digitalRead(BR_ENC_B);
+  
+    switch(enc){
+    
+        case (0b1):  // CW Backwards
+            br_enc --;
+            break;
+  
+        case (0b0):  // CCW Forwards
+            br_enc ++;
+            break;
+    sei();
+    }
 }
-
-
