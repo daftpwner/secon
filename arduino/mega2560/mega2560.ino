@@ -14,12 +14,12 @@
 #include <PID_v1.h>
 #include <Servo.h>
 #include <Stepper.h>
+// OLED Drivers
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
 
 // Pin definitions
-// NOTE: pins 0 and 1 reserved for USB TX/RX
-// NOTE: pins 9 and 10 reserved for Stage 3 Servos
-Servo servo1; // gripper
-Servo servo2; // rotation
+const int OLED_RESET = 9;
 
 // Encoder pins
 #define FL_ENC_A 2
@@ -34,8 +34,8 @@ Servo servo2; // rotation
 // Bump switch pins
 #define STG1_WALL_SWITCH 22
 #define STG1_ALIGN_SWITCH 24
-#define STG3_WALL_SWITCH 23
-#define STG3_ALIGN_SWITCH 25
+#define STG3_ALIGN_SWITCH 26
+#define STG3_WALL_SWITCH 28
 
 // Start/Stop switch pins
 #define START_SWITCH 26
@@ -63,9 +63,11 @@ const int STG4_FEEDER = 15;
 const int WHEEL_RAD = 30; // in mm! not m!
 const int ENC_PER_REV = 810; // encoder pulses per motor output revolution
 
+// Display
+Adafruit_SSD1306 display(OLED_RESET);
+
 // Variable initialization
 // NOTE: use volatile for non-constant data lest the compiler hardcode it!
-
 
 // Command variables
 String cmd_str;
@@ -187,14 +189,6 @@ void setup() {
     AFMS.begin();
     STG_MS.begin();
 
-    // Initialize stage 3 servos
-    servo1.attach(9);
-    servo2.attach(10);
-    
-    // Stop the motors
-    servo2.write(90);
-    servo1.write(0);
-    
     // Initialize motors to zero movement
     FL_mot->setSpeed(0);
     FR_mot->setSpeed(0);
@@ -216,7 +210,9 @@ void setup() {
     FR_PID.SetMode(AUTOMATIC);
     BL_PID.SetMode(AUTOMATIC);
     BR_PID.SetMode(AUTOMATIC);
-    
+
+    display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+    display.clearDisplay();
 }
 
 /*************
@@ -309,6 +305,18 @@ void STG1(){
   retract_STG1();
   
   STG_trigger = 0;
+  draw_seq();
+}
+// Draw sequence decoded
+void draw_seq(){
+  display.setTextSize(4);
+  display.setTextColor(WHITE);
+  display.setCursor(0,0);
+  for (int i=0;i<5;i++){
+    display.write(seq[0]);
+  }
+  display.display();
+  delay(1);
 }
 // Deploy Stage 1 arm
 void deploy_STG1() {
@@ -414,7 +422,7 @@ void perform_STG1(int seq[]) {
 }
 
 /*************
- *  Stage 1  *
+ *  Stage 3  *
  *************/
 // Stage 3
 void STG3(){
@@ -446,13 +454,14 @@ void perform_STG3(){
     (rot_dir == 1) ? Serial.print("Clockwise: ") : Serial.print("Counter-Clockwise: ");
     Serial.println(seq[m]);
     
-    STG3_rotation_stepper.step((-1**rot_dir)*stepsPerRevolution*seq[m]); // rotate seq[m] revolutions c/cw
-    rot_dir = (rot_dir == 0); // toggle between 1 and 0
+    STG3_rotation_stepper.step((-1+rot_dir)*STEP_PER_REV*seq[m]); // rotate seq[m] revolutions c/cw
+    rot_dir = 2*(rot_dir == 0); // toggle between 1 and 0
+    rot_seq[m] = seq[m];
   }
 }
 
 /*************
- *  Stage 1  *
+ *  Stage 4  *
  *************/
 // Stage 4
 void STG4() {
@@ -499,7 +508,7 @@ void update_status(){
     Serial.print("sq:");
     Serial.print(seq[0]); Serial.print(seq[1]); Serial.print(seq[2]); Serial.print(seq[3]); Serial.print(seq[4]);
     Serial.print("rt:");
-    Serial.print(rot_seq);
+    Serial.print(rot_seq[0]);Serial.print(rot_seq[1]);Serial.print(rot_seq[2]);Serial.print(rot_seq[3]);Serial.print(rot_seq[4]);
     Serial.print("stg4:");
     Serial.print(1&stg4_fin);
     Serial.print('\n');
