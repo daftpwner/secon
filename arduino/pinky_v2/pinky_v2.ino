@@ -13,6 +13,9 @@
 #include <AFMotor.h>
 #include <Servo.h> 
 
+#define delta_field 15
+#define field_fall_time 300
+
 // Wheels
 Servo servo1; // Right wheel
 Servo servo2; // Left wheel
@@ -22,6 +25,7 @@ Servo servo3;
 
 // Bump Switch 
 #define BUMP_SWITCH 2
+#define START_SWITCH 0 // Starting push button
 
 // Assign and ID to the magnetic field sensor
 Adafruit_HMC5883_Unified mag = Adafruit_HMC5883_Unified(12345);
@@ -58,6 +62,7 @@ void setup() {
 
   // initialize bump switch
   pinMode(BUMP_SWITCH, INPUT_PULLUP);
+  //pinMode(START_SWITCH, INPUT_PULLUP); // Starting pin
 
   // Initialize hit stick
   servo3.write(180);
@@ -94,6 +99,9 @@ void loop() {
       servo2.write(90);
       servo1.write(90);
 
+      servo2.detach();
+      servo1.detach();
+
       // Telling user that stage 2 has been reached
       Serial.print("\tStage 2 Reached\n");
       
@@ -126,7 +134,7 @@ void loop() {
 //        Serial.println(new_vect);
         
         // Checking magnetic vector magnitude
-        if (new_vect - ref_vect > 6 || new_vect - ref_vect < -6){
+        if (new_vect - ref_vect > delta_field || new_vect - ref_vect < -delta_field){
           servo3.write(90); // strike
           delay(300); // Time for hit to contact and then wait
           servo3.write(130); // pull back
@@ -150,8 +158,8 @@ void loop() {
             ref_vect = sqrt(event.magnetic.x * event.magnetic.x + event.magnetic.y * event.magnetic.y +event.magnetic.z * event.magnetic.z);
 
             // Waiting to assign new field value until magnetic field has been turned off
-            if (new_vect - ref_vect > 6 || new_vect - ref_vect < -6){
-              delay(200); // Used to prevent sudden hits when the magnetic field is still dropping, will probably need finer tuning on timing.
+            if (new_vect - ref_vect > delta_field || new_vect - ref_vect < -delta_field){
+              delay(field_fall_time); // Used to prevent sudden hits when the magnetic field is still dropping, will probably need finer tuning on timing.
               break;
             }
           }
@@ -173,7 +181,11 @@ void loop() {
     while(Serial.available() == 0) {
       if(Serial.available() > 0){
         start_cmd = Serial.read();
-        if (start_cmd == 'r') continue;}
+        if (start_cmd == 'r') {
+          servo2.attach(9);
+          servo1.attach(10);
+          continue;}
+        }
     }
     
   }
