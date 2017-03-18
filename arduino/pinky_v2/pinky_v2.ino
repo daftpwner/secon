@@ -62,7 +62,7 @@ void setup() {
 
   // initialize bump switch
   pinMode(BUMP_SWITCH, INPUT_PULLUP);
-  //pinMode(START_SWITCH, INPUT_PULLUP); // Starting pin
+  pinMode(START_SWITCH, INPUT_PULLUP); // Starting pin
 
   // Initialize hit stick
   servo3.write(180);
@@ -80,113 +80,106 @@ void loop() {
 
   // Used to control when Pinky starts via the serial monitor
   // To start pinky, simply type in "s" and send
-  if (Serial.available() > 0){
-    Serial.print("Data available\n");
-    start_cmd = Serial.read();
-    if (start_cmd == 's') {
-      
-      // Beginning course run
-      Serial.print("Begin Driving\n");
+  if (digitalRead(START_SWITCH) == LOW) {
     
+    // Beginning course run
+    Serial.print("Begin Driving\n");
+  
+    // Drive to Stage 2
+    while (digitalRead(BUMP_SWITCH) == HIGH){
       // Drive to Stage 2
-      while (digitalRead(BUMP_SWITCH) == HIGH){
-        // Drive to Stage 2
-        servo2.write(97);
-        servo1.write(83);
-      }
+      servo2.write(97);
+      servo1.write(83);
+    }
+  
+    // Stage 2 reached, stop driving
+    servo2.write(90);
+    servo1.write(90);
+
+    servo2.detach();
+    servo1.detach();
+
+    // Telling user that stage 2 has been reached
+    Serial.print("\tStage 2 Reached\n");
     
-      // Stage 2 reached, stop driving
-      servo2.write(90);
-      servo1.write(90);
+    // First of five strikes
+    servo3.write(90);
+    Serial.println("Swinging once");
+    delay(300); // Time for hit to contact and then wait
+    servo3.write(130); // come back
+    delay(500);
+    
+    // Get reference coordinates
+    sensors_event_t event; 
+    mag.getEvent(&event);
+    ref_vect = sqrt(event.magnetic.x * event.magnetic.x + event.magnetic.y * event.magnetic.y +event.magnetic.z * event.magnetic.z);
 
-      servo2.detach();
-      servo1.detach();
+    // Printing out reference field
+    Serial.print("\tReference Field: ");
+    Serial.println(ref_vect);
+  
+    // Four more strikes possible
+    while (strike_count < 4){
 
-      // Telling user that stage 2 has been reached
-      Serial.print("\tStage 2 Reached\n");
-      
-      // First of five strikes
-      servo3.write(90);
-      Serial.println("Swinging once");
-      delay(300); // Time for hit to contact and then wait
-      servo3.write(130); // come back
-      delay(500);
-      
-      // Get reference coordinates
+      // Get new magnetic value
       sensors_event_t event; 
       mag.getEvent(&event);
-      ref_vect = sqrt(event.magnetic.x * event.magnetic.x + event.magnetic.y * event.magnetic.y +event.magnetic.z * event.magnetic.z);
+      new_vect = sqrt(event.magnetic.x * event.magnetic.x + event.magnetic.y * event.magnetic.y +event.magnetic.z * event.magnetic.z);
 
-      // Printing out reference field
-      Serial.print("\tReference Field: ");
-      Serial.println(ref_vect);
-    
-      // Four more strikes possible
-      while (strike_count < 4){
-
-        // Get new magnetic value
-        sensors_event_t event; 
-        mag.getEvent(&event);
-        new_vect = sqrt(event.magnetic.x * event.magnetic.x + event.magnetic.y * event.magnetic.y +event.magnetic.z * event.magnetic.z);
-
-        // Current serial data
+      // Current serial data
 //        Serial.print("Current value: ");
 //        Serial.println(new_vect);
+      
+      // Checking magnetic vector magnitude
+      if (new_vect - ref_vect > delta_field || new_vect - ref_vect < -delta_field){
+        servo3.write(90); // strike
+        delay(300); // Time for hit to contact and then wait
+        servo3.write(130); // pull back
+        Serial.println("Strike Occurred");
+        delay(500);
+
+        Serial.print("\tField Change: ");
+        Serial.println(new_vect);
         
-        // Checking magnetic vector magnitude
-        if (new_vect - ref_vect > delta_field || new_vect - ref_vect < -delta_field){
-          servo3.write(90); // strike
-          delay(300); // Time for hit to contact and then wait
-          servo3.write(130); // pull back
-          Serial.println("Strike Occurred");
-          delay(500);
-
-          Serial.print("\tField Change: ");
-          Serial.println(new_vect);
-          
-          strike_count = strike_count + 1;
-          
-          /* 
-           *  Field turns off when hit is detected; minimal field "off" time is 1 second.
-           *  Thus, need to get a new reference and be waiting sooner than 1 second.
-          */
-          
-          while (true) {
-            // Get new reference magnetic vector
-            sensors_event_t event; 
-            mag.getEvent(&event);
-            ref_vect = sqrt(event.magnetic.x * event.magnetic.x + event.magnetic.y * event.magnetic.y +event.magnetic.z * event.magnetic.z);
-
-            // Waiting to assign new field value until magnetic field has been turned off
-            if (new_vect - ref_vect > delta_field || new_vect - ref_vect < -delta_field){
-              delay(field_fall_time); // Used to prevent sudden hits when the magnetic field is still dropping, will probably need finer tuning on timing.
-              break;
-            }
-          }
+        strike_count = strike_count + 1;
+        
+        /* 
+         *  Field turns off when hit is detected; minimal field "off" time is 1 second.
+         *  Thus, need to get a new reference and be waiting sooner than 1 second.
+        */
+        
+        while (true) {
+          // Get new reference magnetic vector
           sensors_event_t event; 
           mag.getEvent(&event);
           ref_vect = sqrt(event.magnetic.x * event.magnetic.x + event.magnetic.y * event.magnetic.y +event.magnetic.z * event.magnetic.z);
-          
-          Serial.print("\tNew Reference: ");
-          Serial.println(ref_vect);
-          
-        }
-      }
-      
-      strike_count = 0;
-    }
 
-    start_cmd = 0;
-    Serial.print("Waiting for reset");
-    while(Serial.available() == 0) {
-      if(Serial.available() > 0){
-        start_cmd = Serial.read();
-        if (start_cmd == 'r') {
-          servo2.attach(9);
-          servo1.attach(10);
-          continue;}
+          // Waiting to assign new field value until magnetic field has been turned off
+          if (new_vect - ref_vect > delta_field || new_vect - ref_vect < -delta_field){
+            delay(field_fall_time); // Used to prevent sudden hits when the magnetic field is still dropping, will probably need finer tuning on timing.
+            break;
+          }
         }
+        sensors_event_t event; 
+        mag.getEvent(&event);
+        ref_vect = sqrt(event.magnetic.x * event.magnetic.x + event.magnetic.y * event.magnetic.y +event.magnetic.z * event.magnetic.z);
+        
+        Serial.print("\tNew Reference: ");
+        Serial.println(ref_vect);
+        
+      }
     }
     
+    strike_count = 0;
+  }
+
+  start_cmd = 0;
+  Serial.print("Waiting for reset");
+  while(true) {
+    if (digitalRead(START_SWITCH) == LOW) {
+      servo2.attach(9);
+      servo1.attach(10);
+      break;
+    }
   }
 }
