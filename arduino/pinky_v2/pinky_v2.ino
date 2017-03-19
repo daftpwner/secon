@@ -25,7 +25,7 @@ Servo servo3;
 
 // Bump Switch 
 #define BUMP_SWITCH 2
-#define START_SWITCH 0 // Starting push button
+#define START_SWITCH 12 // Starting push button
 
 // Assign and ID to the magnetic field sensor
 Adafruit_HMC5883_Unified mag = Adafruit_HMC5883_Unified(12345);
