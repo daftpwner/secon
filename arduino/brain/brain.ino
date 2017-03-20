@@ -18,6 +18,12 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 
+// Hardcoded values
+#define STG1_SWITCH_STEPS 50
+#define STG3_SWITCH_STEPS 50
+
+
+
 // Pin definitions
 const int OLED_RESET = 9;
 
@@ -83,7 +89,22 @@ int rot_seq[5] = {0};
 // Stage 4 Variables
 int stg4_fin = 0;
 
-
+// State tracker
+enum states {
+  WAIT_FOR_START,
+  START,
+  NAV_TO_STG1_WALL,
+  ALIGN_TO_STG1,
+  START_STG1,
+  REALIGN_TO_STG1,
+  NAV_TO_STG3_WALL,
+  ALIGN_TO_STG3,
+  START_STG3,
+  REALIGN_TO_STG3,
+  START_STG4,
+  FIN
+};
+states state = WAIT_FOR_START;
 /*******************
  * Motor variables *
  *******************/
@@ -220,36 +241,61 @@ void setup() {
  * Main Loop *
  *************/
 void loop() {
-    receive_str();    
-    switch(STG_trigger){
-        
-        case (0b000):  // Do nothing
-            break;
+  unsigned long now = millis();
+  switch(state){
     
-        case (0b100):  // Stage 1 trigger
-            STG1();
-            break;
+    case (WAIT_FOR_START):  // Do nothing
+      wait_for_start();
+      break;
+
+    case (START):
+      start();
+      break;
+
+    case (NAV_TO_STG1_WALL):
+      nav_to_STG1_wall();
+      break;
     
-        case (0b010):  // Stage 3 trigger
-            STG3();
-            break;
-        
-        case (0b001):  // Stage 4 trigger
-            STG4();
-            break;
-            
-    }
-    update_status(); // Send update string at about 10 Hz
-    delay(10);
-    cmd_motors();
-    delay(20);
-    cmd_motors();
-    delay(20);
-    cmd_motors();
-    delay(20);
-    cmd_motors();
-    delay(20);
+    case (ALIGN_TO_STG1):
+      align_to_STG1();
+      break;
     
+    case (START_STG1):
+      start_STG1();
+      break;
+    
+    case (REALIGN_TO_STG1):
+      realign_to_STG1();
+      break;
+    
+    case (NAV_TO_STG3_WALL):
+      nav_to_STG3_wall();
+      break;
+    
+    case (ALIGN_TO_STG3):
+      align_to_STG3();
+      break;
+    
+    case (START_STG3):
+      start_STG3();
+      break;
+    
+    case (REALIGN_TO_STG3):
+      realign_to_STG3();
+      break;
+    
+    case (START_STG4):
+      start_STG4();
+      break;
+    
+    case (FIN):
+      fin();
+      break;
+          
+  }
+  update_status(); // Send update string at about 10 Hz
+  cmd_motors();
+  while ((millis()-now)<100);
 
 }
 /***************
@@ -520,7 +566,7 @@ void update_status(){
  *******************/
 // Set drive PWM commands
 void cmd_motors() {
-  
+    /*
     update_motor_vel();
     
     FL_PID.Compute();
@@ -558,6 +604,42 @@ void cmd_motors() {
     // Back Right motor command
     BR_mot->setSpeed((uint8_t) abs((int) br_pwm));
     if (br_pwm < 0){
+        BR_mot->run(BACKWARD);
+    }
+    else{
+        BR_mot->run(FORWARD);
+    }
+    */
+    // Front Left motor command
+    FL_mot->setSpeed((uint8_t) abs((int) round(cmd_fl_vel)));
+    if (cmd_fl_vel < 0){
+        FL_mot->run(FORWARD);
+    }
+    else{
+        FL_mot->run(BACKWARD);
+    }
+    
+    // Front Right motor command
+    FR_mot->setSpeed((uint8_t) abs((int) cmd_fr_vel));
+    if (cmd_fr_vel < 0){
+        FR_mot->run(BACKWARD);
+    }
+    else{
+        FR_mot->run(FORWARD);
+    }
+  
+    // Back Left motor command
+    BL_mot->setSpeed((uint8_t) abs((int)cmd_bl_vel));
+    if (cmd_bl_vel < 0){
+        BL_mot->run(FORWARD);
+    }
+    else{
+        BL_mot->run(BACKWARD);
+    }
+  
+    // Back Right motor command
+    BR_mot->setSpeed((uint8_t) abs((int) cmd_br_vel));
+    if (cmd_br_vel < 0){
         BR_mot->run(BACKWARD);
     }
     else{
@@ -703,3 +785,205 @@ void BR_A() {
     sei();
     }
 }
+
+
+/**********
+ * States *
+ **********/
+
+void wait_for_start(){
+  Serial.println("wait_for_start");
+  if (!digitalRead(START_SWITCH)){
+    state = START;
+  }
+}
+void start(){
+  Serial.println("start");
+  static long now = millis();
+  //start_pinky();
+  while ((millis()-now)<5000){
+    delay(1);
+  }
+  state = NAV_TO_STG1_WALL;
+}
+void nav_to_STG1_wall(){
+  Serial.println("nav_to_STG1_wall");
+  if (digitalRead(STG1_WALL_SWITCH)){
+    cmd_fl_vel = -70;
+    cmd_fr_vel = -250;
+    cmd_bl_vel = -250;
+    cmd_br_vel = -70;
+  }else{
+    cmd_fl_vel = 0;
+    cmd_fr_vel = 0;
+    cmd_bl_vel = 0;
+    cmd_br_vel = 0;
+    state = ALIGN_TO_STG1;
+    cmd_motors();
+    // extend STG1 Bump Switch
+    STG3_motor->step(STG1_SWITCH_STEPS,FORWARD,MICROSTEP);
+    STG3_motor->release();
+  }
+  
+}
+void align_to_STG1(){
+  Serial.println("align_to_STG1");
+  if (digitalRead(STG1_WALL_SWITCH)){
+    // Lost wall, realign
+    cmd_fl_vel = -80;
+    cmd_fr_vel = -80;
+    cmd_bl_vel = -80;
+    cmd_br_vel = -80;
+  } else if (digitalRead(STG1_ALIGN_SWITCH)){
+    // Have wall, slide to stage 1
+    cmd_fl_vel = -110;
+    cmd_fr_vel = 90;
+    cmd_bl_vel = 90;
+    cmd_br_vel = -110;
+  } else {
+    // Have wall and stage 1
+    cmd_fl_vel = 0;
+    cmd_fr_vel = 0;
+    cmd_bl_vel = 0;
+    cmd_br_vel = 0;
+    state = START_STG1;
+  }
+}
+void start_STG1(){
+  Serial.println("start_STG1");
+  /*
+  STG1();
+  // Check for good read
+  int good_read = 15;
+  int prev_seq[5] = {0};
+  for(int i=0;i<5;i++){
+    // unassigned check
+    if (seq[i] <= 0){
+      state = REALIGN_TO_STG1;
+      return;
+    }
+    // duplicate check
+    for(int j=0;j<5;j++){
+      if ((j!=i)&&(seq[i]==seq[j])){
+        state = REALIGN_TO_STG1;
+        return;
+      }
+    }
+    good_read -= seq[i];
+    prev_seq[i] = seq[i];
+  }
+  // Remeasure if good else realign
+  if (good_read==0){
+    STG1();
+  }else {
+    // bad/open circuit
+    state=REALIGN_TO_STG1;
+    return;
+  }
+  // Check for consistency
+  for(int i=0;i<5;i++){
+    if (seq[i]!=prev_seq[i]){
+      // inconsistent
+      state = REALIGN_TO_STG1;
+      return;
+    }
+  }
+  */
+  // Valid sequence found and confirmed via second measurement
+  state = NAV_TO_STG3_WALL;
+  // retract STG1 Bump Switch
+  STG3_motor->step(STG1_SWITCH_STEPS,BACKWARD,MICROSTEP);
+  STG3_motor->release();
+}
+void realign_to_STG1(){
+  Serial.println("realign_to_STG1");
+  static long start = 0;
+  if (start == 0) start = millis();
+  
+  if ((millis() - start) < 2000){
+    // Back up to left
+    cmd_fl_vel = 200;
+    cmd_fr_vel = 200;
+    cmd_bl_vel = 200;
+    cmd_br_vel = 200;
+  }else {
+    start = 0;
+    state = NAV_TO_STG1_WALL;
+  }
+}
+void nav_to_STG3_wall(){
+  Serial.println("nav_to_STG3_wall");
+  if (digitalRead(STG3_WALL_SWITCH)){
+    cmd_fl_vel = 150;
+    cmd_fr_vel = 220;
+    cmd_bl_vel = 220;
+    cmd_br_vel = 140;
+  }else{
+    cmd_fl_vel = 0;
+    cmd_fr_vel = 0;
+    cmd_bl_vel = 0;
+    cmd_br_vel = 0;
+    state = ALIGN_TO_STG3;
+    cmd_motors();
+    // extend STG3 Bump Switch
+    STG3_motor->step(STG3_SWITCH_STEPS,FORWARD,MICROSTEP);
+    STG3_motor->release();
+  }
+}
+void align_to_STG3(){
+  Serial.println("align_to_STG3");
+  if (digitalRead(STG3_WALL_SWITCH)){
+    // Lost wall, realign
+    cmd_fl_vel = 60;
+    cmd_fr_vel = 60;
+    cmd_bl_vel = 60;
+    cmd_br_vel = 60;
+  } else if (digitalRead(STG3_ALIGN_SWITCH)){
+    // Have wall, slide to stage 1
+    cmd_fl_vel = 90;
+    cmd_fr_vel = -110;
+    cmd_bl_vel = -110;
+    cmd_br_vel = 90;
+  } else {
+    // Have wall and stage 1
+    cmd_fl_vel = 0;
+    cmd_fr_vel = 0;
+    cmd_bl_vel = 0;
+    cmd_br_vel = 0;
+    state = START_STG3;
+  }
+}
+void start_STG3(){
+  Serial.println("start_STG3");
+  STG3();
+  state = START_STG4;
+  // retract STG3 Bump Switch
+  STG3_motor->step(STG3_SWITCH_STEPS,BACKWARD,MICROSTEP);
+  STG3_motor->release();
+}
+void realign_to_STG3(){
+  Serial.println("realign_to_STG3");
+  static long start = 0;
+  if (start == 0) start = millis();
+  
+  if ((millis() - start) < 2000){
+    // Back up to left
+    cmd_fl_vel = -200;
+    cmd_fr_vel = -200;
+    cmd_bl_vel = -200;
+    cmd_br_vel = -200;
+  }else {
+    start = 0;
+    state = NAV_TO_STG3_WALL;
+  }
+}
+void start_STG4(){
+  Serial.println("start_STG4");
+  STG4();
+  state = FIN;
+}
+void fin(){
+  Serial.println("fin");
+  while(1);
+}
+
