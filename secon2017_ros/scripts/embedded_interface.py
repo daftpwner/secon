@@ -157,7 +157,7 @@ class EmbeddedInterface():
         self.ros_msg.wheel_vels = [float(vel) for vel in wvel_msg[3:].split(";")]
         self.ros_msg.sequence = "{:05d}".format(int(seq_msg[3:]))
         self.ros_msg.rotation_sequence = "{:05d}".format(int(rot_msg[3:]))
-        self.ros_msg.stg4 = bool(int(stg4_msg[5]))
+        self.ros_msg.stg4 = bool(int(stg4_msg))
 
         self.integrate_odometry()
         self.brain_state_pub.publish(self.ros_msg)

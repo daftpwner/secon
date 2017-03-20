@@ -23,13 +23,13 @@ const int OLED_RESET = 9;
 
 // Encoder pins
 #define FL_ENC_A 2
-#define FL_ENC_B 16
+#define FL_ENC_B 4
 #define FR_ENC_A 3
 #define FR_ENC_B 5
 #define BL_ENC_A 19
-#define BL_ENC_B 23
+#define BL_ENC_B 17
 #define BR_ENC_A 18
-#define BR_ENC_B 17
+#define BR_ENC_B 16
 
 // Bump switch pins
 #define STG1_WALL_SWITCH 22
@@ -38,8 +38,8 @@ const int OLED_RESET = 9;
 #define STG3_WALL_SWITCH 28
 
 // Start/Stop switch pins
-#define START_SWITCH 30
-#define STOP_SWITCH 32
+#define START_SWITCH 26
+#define STOP_SWITCH 27
 
 // Analog pins
 #define STG1_PWM 9
@@ -213,7 +213,6 @@ void setup() {
 
     display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
     display.clearDisplay();
-    
 }
 
 /*************
@@ -522,7 +521,6 @@ void update_status(){
 void cmd_motors() {
   
     update_motor_vel();
-    
     FL_PID.Compute();
     FR_PID.Compute();
     BL_PID.Compute();
@@ -626,16 +624,16 @@ void FL_A() {
     cli();  //stop interrupts during routine
     static volatile int enc;
     // Reads the two pins and xors them
-    enc = ((PINE & (1<<PE4))>>4) ^ ((PINH & (1<<PH1))>>1);
+    enc = ((PINE & (1<<PE4))>>4) ^ ((PINB & (1<<PB1))>>1);
     //enc = digitalRead(FL_ENC_A) ^ digitalRead(FL_ENC_B);
     switch(enc){
         
-        case (0b1):  // CCW Forward
-            fl_enc --;
+        case (0b1):  // CW Forward
+            fl_enc ++;
             break;
         
-        case (0b0):  // CW Backwards
-            fl_enc ++;
+        case (0b0):  // CCW Backwards
+            fl_enc --;
             break;
     sei();
     }
@@ -646,7 +644,7 @@ void FR_A() {
     cli();  //stop interrupts during routine
     static int enc;
     // Reads the two pins and xors them
-    enc = ((PINE & (1<<PE5))>>5) ^ ((PINE & (1<<PE3))>>3);
+    enc = ((PINE & (1<<PE5))>>5) ^ ((PINB & (1<<PB2))>>2);
     //enc = digitalRead(FR_ENC_A) ^ digitalRead(FR_ENC_B);
   
     switch(enc){
@@ -667,7 +665,7 @@ void BL_A() {
     cli();  //stop interrupts during routine
     static int enc;
     // Reads the two pins and xors them
-    enc = ((PIND & (1<<PD2))>>2) ^ ((PINA & (1<<PA1)) >> 1);
+    enc = ((PIND & (1<<PD2))>>2) ^ ((PINJ & (1<<PJ0)) >> 0);
     //enc = digitalRead(BL_ENC_A) ^ digitalRead(BL_ENC_B);
   
     switch(enc){
@@ -688,7 +686,7 @@ void BR_A() {
     cli();  //stop interrupts during routine
     static int enc;
     // Reads the two pins and xors them
-    enc = ((PIND & (1<<PD3))>>3) ^ ((PINH & (1<<PH0))>>0);
+    enc = ((PIND & (1<<PD3))>>3) ^ ((PING & (1<<PG5))>>5);
     //enc = digitalRead(BR_ENC_A) ^ digitalRead(BR_ENC_B);
   
     switch(enc){

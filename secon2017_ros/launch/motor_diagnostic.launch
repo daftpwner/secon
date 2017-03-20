@@ -3,7 +3,7 @@
 	<node name="state_machine" type="brain_state_machine.py" pkg="secon2017_ros" output="screen" />
 
 	<node name="embedded_interface" type="embedded_interface.py" pkg="secon2017_ros" output="screen" >
-		<param name="brain_serial_port" value="/dev/ttyACM1" />
+		<param name="brain_serial_port" value="/dev/arduino/mega" />
 	</node>
 
 	<node name="record" type="record" pkg="rosbag" args="-a -o $(find secon2017_ros)/bags/" />
