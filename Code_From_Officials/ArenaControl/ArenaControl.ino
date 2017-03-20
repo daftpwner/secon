@@ -106,7 +106,7 @@ void loop()
       stage3.step(now);
       
    // Else the competition is over, so stop everything and report the results
-   } else {
+   } else if (stage2.stage2_stop()){
    
       // Stop all the stage functions
       controller.stop(now);

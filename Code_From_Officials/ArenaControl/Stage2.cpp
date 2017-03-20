@@ -431,3 +431,9 @@ static void activateField(boolean state) {
    digitalWrite(FIELD_PIN, state ? HIGH : LOW); 
 }
 
+bool Stage2::stage2_stop(){
+  if (curState == STOPPED) return true;
+  return false;
+}
+
+
