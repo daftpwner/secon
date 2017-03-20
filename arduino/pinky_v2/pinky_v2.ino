@@ -13,7 +13,7 @@
 #include <AFMotor.h>
 #include <Servo.h> 
 
-#define delta_field 15
+#define delta_field 12
 #define field_fall_time 300
 
 // Wheels
