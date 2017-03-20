@@ -192,6 +192,7 @@ void loop() {
         
       }
     }
+    stop_check = 1;
   }
 }
 
