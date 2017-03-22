@@ -13,8 +13,8 @@
 #include <AFMotor.h>
 #include <Servo.h> 
 
-#define delta_field 12
-#define field_fall_time 300
+#define delta_field 10
+#define field_fall_time 250
 
 // Wheels
 Servo servo1; // Right wheel
@@ -152,13 +152,15 @@ void loop() {
         servo3.write(90); // strike
         delay(300); // Time for hit to contact and then wait
         servo3.write(130); // pull back
-        Serial.println("Strike Occurred");
         delay(500);
 
+        strike_count = strike_count + 1;
+
+        Serial.print(strike_count, DEC);
+        Serial.println(" Strike Occurred");
         Serial.print("\tField Change: ");
         Serial.println(new_vect);
         
-        strike_count = strike_count + 1;
         
         /* 
          *  Field turns off when hit is detected; minimal field "off" time is 1 second.
