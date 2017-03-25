@@ -19,9 +19,10 @@
 #include <Adafruit_SSD1306.h>
 
 // Hardcoded values
-#define STG1_SWITCH_STEPS 50
-#define STG3_SWITCH_STEPS 50
-
+#define STG1_SWITCH_STEPS 58
+#define STG1_STEPS 205
+#define STG3_SWITCH_STEPS 45
+#define STG3_STEPS 100
 
 
 // Pin definitions
@@ -48,7 +49,7 @@ const int OLED_RESET = 9;
 #define STOP_SWITCH 32
 
 // Analog pins
-#define STG1_PWM 9
+#define STG1_PWM 44
 #define ADC_TOP A0
 #define ADC_TR A1
 #define ADC_BR A2
@@ -194,6 +195,8 @@ void setup() {
     // Initialize Start/Stop switch pins
     pinMode(START_SWITCH,INPUT_PULLUP);
     pinMode(STOP_SWITCH,INPUT_PULLUP);
+    
+    TCCR5B = (TCCR2B & 0xF8) | 0x01;
 
     // Initialize stage 1 pins
     pinMode(STG1_PWM, OUTPUT);
@@ -293,7 +296,7 @@ void loop() {
       break;
           
   }
-  update_status(); // Send update string at about 10 Hz
+  //update_status(); // Send update string at about 10 Hz
   cmd_motors();
   while ((millis()-now)<100);
 
@@ -347,11 +350,10 @@ void receive_str(){
 void STG1(){
   deploy_STG1();
 
-  perform_STG1(seq);
+  perform_STG1();
 
   retract_STG1();
   
-  STG_trigger = 0;
   draw_seq();
 }
 // Draw sequence decoded
@@ -368,12 +370,12 @@ void draw_seq(){
 // Deploy Stage 1 arm
 void deploy_STG1() {
 
-    STG1_motor->step(195,BACKWARD,MICROSTEP);
+    STG1_motor->step(STG1_STEPS,BACKWARD,MICROSTEP);
 }
 // Retract Stage 1 arm
 void retract_STG1() {
 
-  STG1_motor->step(195,FORWARD,MICROSTEP);
+  STG1_motor->step(STG1_STEPS,FORWARD,MICROSTEP);
   STG1_motor->release();
 }
 // Sample analog pin
@@ -390,12 +392,11 @@ void sample_pin(int an_pin, double* max_val, double* avg) {
   *avg = *avg/((double) SAMPLES);
 }
 // Sample and determine sequence
-void perform_STG1(int seq[]) {
+void perform_STG1() {
   // Start PWM
   // allocate variables
   double max_val[5] = {0};
   double avg[5] = {0};
-  delay(10);
   // Sample pads
   analogWrite(STG1_PWM,127);
   sample_pin(ADC_TOP, &max_val[0], &avg[0]);
@@ -429,6 +430,7 @@ void perform_STG1(int seq[]) {
     if ((avg[i]<10)&&(max_val[i]<10)){
       wire = i;
       seq[i] = 1;
+      break;
     }
   }
   // Find cap
@@ -436,6 +438,7 @@ void perform_STG1(int seq[]) {
     if ((avg[i]<30)&&(avg[i]>10) && (max_val[i]<75)){
       cap = i;
       seq[i] = 3;
+      break;
     }
   }
   // Find FB-diode
@@ -443,6 +446,7 @@ void perform_STG1(int seq[]) {
     if ((avg[i]>50)&&(avg[i]<70)&&(max_val[i]<150)&&(max_val[i]>75)){
       diode = i;
       seq[i] = 5;
+      break;
     }
   }
   // Find Resistor
@@ -450,6 +454,7 @@ void perform_STG1(int seq[]) {
     if ((avg[i]>65)&&(avg[i]<80)&&(max_val[i]<250)&&(max_val[i]>190)){
       res = i;
       seq[i] = 2;
+      break;
     }
   }
   // Find Inductor
@@ -457,15 +462,25 @@ void perform_STG1(int seq[]) {
     if ((avg[i]>70)&&(avg[i]<80)&&(max_val[i]>250)){
       ind = i;
       seq[i] = 4;
+      break;
     }
   }
   // Find RB-diode
   for( int i=0;i<5;i++){
-    if (seq[i]==0){
+    if (seq[i] <= 0){
       diode = i;
       seq[i] = 5;
     }
   }
+  //*
+  Serial.print(avg[0]); Serial.print(","); Serial.print(avg[1]); Serial.print(","); Serial.print(avg[2]); Serial.print(","); Serial.print(avg[3]); Serial.print(","); Serial.print(avg[4]); Serial.print(",");
+  Serial.print(max_val[0]); Serial.print(","); Serial.print(max_val[1]); Serial.print(","); Serial.print(max_val[2]); Serial.print(","); Serial.print(max_val[3]); Serial.print(","); Serial.println(max_val[4]);
+  Serial.print("Sequence found: ");
+  for(int i=0;i<5;i++){
+    Serial.print(seq[i]);
+  }
+  Serial.println();
+  //*/
 }
 
 /*************
@@ -483,12 +498,12 @@ void STG3(){
 // Deploy Stage 3 arm
 void deploy_STG3() {
 
-    STG3_motor->step(140,FORWARD,MICROSTEP);
+    STG3_motor->step(STG3_STEPS,FORWARD,MICROSTEP);
 }
 // Retract Stage 3 arm
 void retract_STG3() {
 
-  STG3_motor->step(140,BACKWARD,MICROSTEP);
+  STG3_motor->step(STG3_STEPS,BACKWARD,MICROSTEP);
   STG3_motor->release();
 }
 // Perform Stage 3
@@ -498,11 +513,11 @@ void perform_STG3(){
   for (int m = 0; m < 5; m = m + 1){
     Serial.print("Rotation Sequence: ");
     Serial.println(m+1); // 1-5 instead of 0-4
-    (rot_dir == 1) ? Serial.print("Clockwise: ") : Serial.print("Counter-Clockwise: ");
+    (rot_dir == 2) ? Serial.print("Clockwise: ") : Serial.print("Counter-Clockwise: ");
     Serial.println(seq[m]);
     
     STG3_rotation_stepper.step((-1+rot_dir)*STEP_PER_REV*seq[m]); // rotate seq[m] revolutions c/cw
-    rot_dir = 2*(rot_dir == 0); // toggle between 1 and 0
+    rot_dir = 2*(rot_dir == 0); // toggle between 2 and 0
     rot_seq[m] = seq[m];
   }
 }
@@ -812,7 +827,7 @@ void nav_to_STG1_wall(){
     cmd_fl_vel = -70;
     cmd_fr_vel = -250;
     cmd_bl_vel = -250;
-    cmd_br_vel = -70;
+    cmd_br_vel = -75;
   }else{
     cmd_fl_vel = 0;
     cmd_fr_vel = 0;
@@ -821,7 +836,7 @@ void nav_to_STG1_wall(){
     state = ALIGN_TO_STG1;
     cmd_motors();
     // extend STG1 Bump Switch
-    STG3_motor->step(STG1_SWITCH_STEPS,FORWARD,MICROSTEP);
+    STG3_motor->step(STG1_SWITCH_STEPS,BACKWARD,MICROSTEP);
     STG3_motor->release();
   }
   
@@ -836,10 +851,10 @@ void align_to_STG1(){
     cmd_br_vel = -80;
   } else if (digitalRead(STG1_ALIGN_SWITCH)){
     // Have wall, slide to stage 1
-    cmd_fl_vel = -110;
-    cmd_fr_vel = 90;
-    cmd_bl_vel = 90;
-    cmd_br_vel = -110;
+    cmd_fl_vel = -85;
+    cmd_fr_vel = 75;
+    cmd_bl_vel = 75;
+    cmd_br_vel = -85;
   } else {
     // Have wall and stage 1
     cmd_fl_vel = 0;
@@ -850,8 +865,12 @@ void align_to_STG1(){
   }
 }
 void start_STG1(){
+  // retract STG1 Bump Switch
+  STG3_motor->step(STG1_SWITCH_STEPS,FORWARD,MICROSTEP);
+  STG3_motor->release();
+  
   Serial.println("start_STG1");
-  /*
+  
   STG1();
   // Check for good read
   int good_read = 15;
@@ -888,12 +907,9 @@ void start_STG1(){
       return;
     }
   }
-  */
+  
   // Valid sequence found and confirmed via second measurement
   state = NAV_TO_STG3_WALL;
-  // retract STG1 Bump Switch
-  STG3_motor->step(STG1_SWITCH_STEPS,BACKWARD,MICROSTEP);
-  STG3_motor->release();
 }
 void realign_to_STG1(){
   Serial.println("realign_to_STG1");
@@ -958,7 +974,7 @@ void start_STG3(){
   STG3();
   state = START_STG4;
   // retract STG3 Bump Switch
-  STG3_motor->step(STG3_SWITCH_STEPS,BACKWARD,MICROSTEP);
+  STG3_motor->step(STG3_SWITCH_STEPS,FORWARD,MICROSTEP);
   STG3_motor->release();
 }
 void realign_to_STG3(){
