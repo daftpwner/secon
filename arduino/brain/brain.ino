@@ -511,15 +511,15 @@ void retract_STG3() {
 }
 // Perform Stage 3
 void perform_STG3(){
-  int rot_dir = 0;
+  int rot_dir = 2;
 
   for (int m = 0; m < 5; m = m + 1){
     Serial.print("Rotation Sequence: ");
     Serial.println(m+1); // 1-5 instead of 0-4
     (rot_dir == 2) ? Serial.print("Clockwise: ") : Serial.print("Counter-Clockwise: ");
     Serial.println(STEP_PER_REV*seq[m]);
-    
     STG3_rotation_stepper.step((-1+rot_dir)*STEP_PER_REV*seq[m]); // rotate seq[m] revolutions c/cw
+    delay(1000);
     rot_dir = 2*(rot_dir == 0); // toggle between 2 and 0
     rot_seq[m] = seq[m];
   }
