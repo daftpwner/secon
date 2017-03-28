@@ -33,15 +33,14 @@ void Controller::start()
 
   // If not, start the competition immediately
   if (false == lcdAttached) {
-     Serial.println("LCD controller not found, starting competition immediately\n");
+     Serial.println(F("LCD controller not found, starting competition immediately\n"));
      return;
   }
    
   // Else we will use the LCD and buttons, so initialize the buttons as digital input
   int b;
   for (b=A0; b <= A3; b++) {  
-     pinMode(b, INPUT);
-     digitalWrite(b, HIGH);
+     pinMode(b, INPUT_PULLUP);
   }
 
   // Initialize the display and print the splash screen  
@@ -83,8 +82,6 @@ void Controller::stop(uint32_t timestamp)
 
 void Controller::step(uint32_t timestamp)
 {
-   static boolean initial = true;
-   
    if (false == lcdAttached) {
       return;
    }
@@ -183,7 +180,7 @@ int Controller::buttons()
 Sainsmart_I2CLCD *Controller::lcdp() 
 {
    if (false == lcdAttached) {
-      Serial.println("ERROR: LCD NOT ATTACHED");
+      Serial.println(F("ERROR: LCD NOT ATTACHED"));
    }
    
    return &lcd;

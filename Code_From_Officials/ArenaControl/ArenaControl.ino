@@ -65,6 +65,19 @@ Stage3 stage3;
 Controller controller;
 uint32_t startTimestamp = 0;
 
+extern unsigned int __bss_end;
+extern unsigned int __heap_start;
+extern void *__brkval;
+
+uint16_t getFreeSram() {
+  uint8_t newVariable;
+  // heap is empty, use bss as start memory address
+  if ((uint16_t)__brkval == 0)
+    return (((uint16_t)&newVariable) - ((uint16_t)&__bss_end));
+  // use heap end as the start of the memory address
+  else
+    return (((uint16_t)&newVariable) - ((uint16_t)__brkval));
+};
 
 int randomSeedValue = 0;
 
@@ -73,6 +86,9 @@ void setup()
    Serial.begin(9600);
    Wire.begin();
 
+   Serial.print(F("FreeSram = "));
+   Serial.println(getFreeSram());
+   
    // Randomize the random number generator by reading the A1 voltage
    //    and using that as a seed. Since A1 is floating, it's value is
    //    bouncing, it's value is constantly changing (by a small 
@@ -106,7 +122,7 @@ void loop()
       stage3.step(now);
       
    // Else the competition is over, so stop everything and report the results
-   } else if (stage2.stage2_stop()){
+   } else {
    
       // Stop all the stage functions
       controller.stop(now);
@@ -116,12 +132,12 @@ void loop()
  
       // Add up and print the total score (not counting stage 4, which is manual)     
       score = stage1.score() + stage2.score() + stage3.score();
-      Serial.print("------ RESULTS ------\n");
-      Serial.print("FINAL SCORE: ");
+      Serial.print(F("------ RESULTS ------\n"));
+      Serial.print(F("FINAL SCORE: "));
       Serial.print(score);
-      Serial.print("\nRANDOM SEED: ");
+      Serial.print(F("\nRANDOM SEED: "));
       Serial.print(randomSeedValue);      
-      Serial.print("\n\n");
+      Serial.print(F("\n\n"));
       
       // Print out more detail on each stage
       controller.report(now, score);

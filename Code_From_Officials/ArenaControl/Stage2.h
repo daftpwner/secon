@@ -24,7 +24,6 @@ class Stage2
       void start(void);
       void stop(uint32_t timestamp);
       void step(uint32_t timestamp);
-      bool stage2_stop(void);
       void report(void);
       int  score(void);
 };

@@ -17,7 +17,7 @@
 #define printIIC(args)	Wire.write(args)
 inline size_t Sainsmart_I2CLCD::write(uint8_t value) {
 	send(value, Rs);
-	return 0;
+	return 1;
 }
 
 #else

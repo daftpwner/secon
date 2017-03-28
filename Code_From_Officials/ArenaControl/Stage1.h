@@ -34,8 +34,10 @@ class Stage1
       void step(uint32_t timestamp);
       void report(void);
       int  score(void);
-            
-      uint16_t pattern(void);
+                 
+      uint16_t relayIndex;
+      uint16_t relayPattern;
+      uint16_t turnPattern;
 };
 
 #endif

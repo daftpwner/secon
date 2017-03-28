@@ -1,78 +1,107 @@
-
-#include <stdio.h>
-
 /*
  * Simple program to calculate and print the permutations of a 16
  *   relay configuration to create the component combinations for
  *   the Southeastcon 2017 hardware competition
  *
- * Author: Rodney Radford
+ * Author: Rodney Radford (with lots of help from Pete Soper)
  *
  * It is assumed the components are connected as below, yet any
  *    valid connection is valid as long as they follow the rule 
  *    that each can connect to only 4 pads, and they each pick
  *    a unique pad with which they cannot connect).
  *
- *  D - diode (skips 5)
- *      (also use 'd' to indicate diode in opposite polarity)
- *      can connect to 1, 2, 3, 4
- *  I = inductor (skips 4)
- *      can connect to pads 1, 2, 3, 5
- *  R = resistor (skips 3)
- *      can connect to pads 1, 2, 4, 5
- *  C = capacitor (skips 2)
- *      can connect to pads 1, 3, 4, 5 (skips 2)
  *  W = wire (skips 1)
  *      can connect to pads 2, 3, 4, 5
+ *  R = resistor (skips 2)
+ *      can connect to pads 1, 3, 4, 5
+ *  C = capacitor (skips 3)
+ *      can connect to pads 1, 2, 4, 5
+ *  I = inductor (skips 4)
+ *      can connect to pads 1, 2, 3, 5
+ *  D - diode (skips 5)
+ *      (also use 'd' to indicate diode in opposite polarity)
  */
 
-// Set to 1 to generate B01...1 numbers, or 0 to generate 0b01....1 numbers
-#define GENERATE_ARDUINO_B16_FORMAT  0
+#include <stdio.h>
 
 // Number of valid combinations found
 int count = 0;
 
+/*
+ * These two macros generate the table to control the 3x relays
+ *    for each component. The first entry is always zero - no
+ *    relays engaged, then the right leaf node is engaged, then
+ *    only the top level relay is engaged (selecting the left
+ *    leaf relay, but that relay is not engaged), and finally
+ *    selecting the left relay and engaging it
+ */
 #define BIT(x) (1 << x)
-#define BIT_PATTERN_GENERATOR(top,right,left)  { 0, BIT(right), BIT(left), BIT(top) | BIT(right), BIT(top) | BIT(left) }
+#define BIT_PATTERN_GENERATOR(top,right,left)  { \
+         0, \
+         BIT(right), \
+         BIT(top), \
+         BIT(top) | BIT(left) }
 
-int d_bit_patterns[] = BIT_PATTERN_GENERATOR( 1, 2, 3);
-int i_bit_patterns[] = BIT_PATTERN_GENERATOR( 4, 5, 6);
-int r_bit_patterns[] = BIT_PATTERN_GENERATOR( 7, 8, 9);
-int c_bit_patterns[] = BIT_PATTERN_GENERATOR(10,11,12);
-int w_bit_patterns[] = BIT_PATTERN_GENERATOR(13,14,15);
+/*
+ * Table of 3-relay tree bit patterns for a specific component. 
+ *    Each table has four entries for the 4 valid combinations
+ *    of the 3x relays (8x possible patterns, but only 4x valid)
+ */
+int w_bit_patterns[] = BIT_PATTERN_GENERATOR(12,13,14);
+int r_bit_patterns[] = BIT_PATTERN_GENERATOR( 9,10,11);
+int c_bit_patterns[] = BIT_PATTERN_GENERATOR( 6, 7, 8);
+int i_bit_patterns[] = BIT_PATTERN_GENERATOR( 3, 4, 5);
+int d_bit_patterns[] = BIT_PATTERN_GENERATOR( 0, 1, 2);
 
-#define D_d_relay 16
+/* The #16 relay is used to select between D (anode) and d
+ *     (cathode) configuration of the diode. The center of
+ *     the SPDT switch for this relay connects to the 'top'
+ *     relay for the diode tree, while the NC side connects
+ *     to 'D' while NO connects to 'd'
+ */
+#define D_d_relay 15
 
-int d_valid[] = { 1, 2, 3, 4, 0 };
-int i_valid[] = { 1, 2, 3, 0, 5 };
-int c_valid[] = { 1, 2, 0, 4, 5 };
-int r_valid[] = { 1, 0, 3, 4, 5 };
-int w_valid[] = { 0, 2, 3, 4, 5 };
+// The pad map arrays serve two purposes - first, if the value 
+// is -1, it means the pad is not accessible by this component
+// (ie: a wire, designatied with abbreviation 'w', cannot reach 
+// pad 1.  Next, if the value is not negative, it is an index 
+// into the the bit pattern arrays above.
+//
+// Example, w = 2 (pad 3), selects w_bit_patterns[1] (0b010) 
+// which results in 0 010 000 000 000 000 being or'd into the 
+// relayTable relayPattern word to be generated. This leaves 
+// relays K12 and K14 off and turns on K13. That connects the 
+// wire to pad 3.
 
-
+//  origin    pad:   1   2  3  4  5
+int w_pad_map[] = { -1,  0, 1, 2, 3 };
+int r_pad_map[] = {  0, -1, 1, 2, 3 };
+int c_pad_map[] = {  0,  1,-1, 2, 3 };
+int i_pad_map[] = {  0,  1, 2,-1, 3 };
+int d_pad_map[] = {  0,  1, 2, 3,-1 };
 
 /*
  * Verify if the pad placement for each component is valid
  */
-int valid_combination(int d, int i, int r, int c, int w)
+int valid_combination(int w, int r, int c, int i, int d)
 {
     // If the relay matrix cannot reach, obviously invalid
-    if ((d_valid[d] == 0) ||
-        (i_valid[i] == 0) ||
-        (r_valid[r] == 0) ||
-        (c_valid[c] == 0) ||
-        (w_valid[w] == 0)) 
+    if ((w_pad_map[w] == -1) ||
+        (r_pad_map[r] == -1) ||
+        (c_pad_map[c] == -1) ||
+        (i_pad_map[i] == -1) ||
+        (d_pad_map[d] == -1)) 
        return 0;
 
     // Also invalid if any are connecting to the same pad
     // Simplest test - only ignore comparisons to self, even
     //   though I still compare redundant X==Y and Y==X
-    //   D       I       R       C       W
-    if (        d==r || d==c || d==c || d==w ||    // D
-        i==d         || i==r || i==c || i==w ||    // I
-        r==d || r==i         || r==c || r==w ||    // R
-        c==d || c==i || c==r         || c==w ||    // C
-        w==d || w==r || w==c || w==c)              // W
+    //   W       R       C       I       D
+    if (        w==r || w==c || w==i || w==d ||    // W
+        r==w         || r==c || r==i || r==d ||    // R
+        c==w || c==r         || c==i || c==d ||    // C
+        i==w || i==r || i==c         || i==d ||    // I
+        d==w || d==r || d==c || d==i)              // D
        return 0;
 
     // can reach, and no duplicates, so must be valid
@@ -84,23 +113,17 @@ int valid_combination(int d, int i, int r, int c, int w)
  *    to generate our own.  Admittedly these numbers could be printed
  *    in hex, but it is easier to visually see which relays should
  *    be energized in a binary format.
- * The Arduino binary number format begins with a capital B, while
- *    standard GCC format is 0b (does Arduino accept this too?)
  */
 char *B16_format(int n) {
    static char buffer[32];
    char *cptr = buffer;
    int i;
 
-#if GENERATE_ARDUINO_B16_FORMAT
-   *cptr++ = 'B';
-#else
    *cptr++ = '0';
    *cptr++ = 'b';
-#endif
 
    for (i=0; i < 16; i++)
-      *cptr++ = (n & BIT(16-i)) ? '1' : '0';
+      *cptr++ = (n & BIT(15-i)) ? '1' : '0';
    *cptr++ = '\0';
 
    return buffer;
@@ -113,34 +136,38 @@ char *B16_format(int n) {
  *       bit numbers to compile into the Arduino code to feed
  *       directly to the relays
  */
-void print_combination(int d, int i, int r, int c, int w)
+void print_combination(int w, int r, int c, int i, int d)
 {
-    char buffer[5+1];
+    char comment[5+1], code[5+1];
     int  bit_pattern;
 
     // human readable version of the pattern
-    buffer[6] = '\0';
-    buffer[d] = 'D';
-    buffer[i] = 'I';
-    buffer[r] = 'R';
-    buffer[c] = 'C';
-    buffer[w] = 'W';
+    comment[w] = 'W';    code[w] = '1';   // Wire is 1 turn on stage 3
+    comment[r] = 'R';    code[r] = '2';   // Resistor is 2 turns on stage 3
+    comment[c] = 'C';    code[c] = '3';   // Capacitor is 3 turns on stage 3
+    comment[i] = 'I';    code[i] = '4';   // Inductor is 4 turns on stage 3
+    comment[d] = 'D';    code[d] = '5';   // Diode is 5 turns on stage 3
+    comment[5] = '\0';   code[5] = '\0';
 
     // relay bit pattern (16-bit value actually sent to relay board)
-    bit_pattern = d_bit_patterns[d_valid[d]] |
-                  i_bit_patterns[i_valid[i]] |
-                  c_bit_patterns[c_valid[c]] |
-                  r_bit_patterns[r_valid[r]] |
-                  w_bit_patterns[w_valid[w]];
+    bit_pattern = w_bit_patterns[w_pad_map[w]] |
+                  r_bit_patterns[r_pad_map[r]] |
+                  c_bit_patterns[c_pad_map[c]] |
+                  i_bit_patterns[i_pad_map[i]] |
+                  d_bit_patterns[d_pad_map[d]];
 
-    printf("     { %s, %d, %d, %d, %d, %d }, // %s - #%d\n", 
-            B16_format(bit_pattern), w+1, r+1, c+1, i+1, d+1, buffer, count);
+    // Print out the 'D' bits pattern - add +1 for each turn as
+    //    pads are zero-based, but turn count is one-based
+    printf("     { %s, %s }, // %s - #%d\n", 
+            B16_format(bit_pattern), code, comment, count);
     count++;
 
-    buffer[d] = 'd';
-    bit_pattern |= BIT(D_d_relay);
-    printf("     { %s, %d, %d, %d, %d, %d }, // %s - #%d\n", 
-            B16_format(bit_pattern), w+1, r+1, c+1, i+1, d+1, buffer, count);
+
+    // Now bit flip the D_d_relay to select the 'd' bits pattern
+    comment[d] = 'd';
+    bit_pattern ^= BIT(D_d_relay);
+    printf("     { %s, %s }, // %s - #%d\n", 
+            B16_format(bit_pattern), code, comment, count);
     count++;
 }
 
@@ -152,27 +179,49 @@ void print_header() {
    printf(" * Table consists of binary pattern to the 16 relays, followed\n");
    printf(" *    by the number of turns required at stage 3\n");
    printf(" *\n");
+   printf(" * The table contains the bit patterns for the relay (active\n");
+   printf(" *    low), and the number of turns for the pad. The number of\n");
+   printf(" *    turns is encoded in a 5-digit integer, with MSB the number\n");
+   printf(" *    of turns for pad 1 (12 o'clock, and LSB being the number of\n");
+   printf(" *    turns for pad 5 (9-10 o'clock).\n");
+   printf(" * This does not allow all possible combinations), but is a reasonable\n");
+   printf(" *    enough size tree of values (88 combinations) that it is not \n");
+   printf(" *    possible to guess), and uses only 16 relays (as compared to 25 \n");
+   printf(" *    for a simplistic approach that allows all combinations).\n");
+   printf(" *\n");
+   printf(" * This table was computer generated - do not hand edit!!\n");
    printf(" */\n\n");
+
+   printf("#define RELAY_TABLE_LENGTH (sizeof(relayTable) / sizeof(relayTable[0]))\n");
+   printf("\n");
+   printf("const uint16_t relayTable[][2] PROGMEM = {\n\n");
+   printf("//     Relay bit pattern   turns       pad\n");
+   printf("//     __d_W__R__C__I__D_  12345       12345   ID\n");
+
 }
+
+void print_trailer() {
+   printf("};\n");
+}
+
 
 int main(int argc, char **argv) 
 {
-   int d, i, r, c, w;
+   int w, r, c, i, d;
 
    print_header();
-   printf("int relay_tree[][6] = {\n");
 
    // Blindly iterate over all combinations, testing if valid
    //    and only printing (and counting) the valid ones
-   for (d=0; d<5; d++)
-      for (i=0; i < 5; i++)
-          for (r=0; r < 5; r++)
-              for (c=0; c < 5; c++)
-                  for (w=0; w < 5; w++)
-                     if (valid_combination(d,i,r,c,w))
-                        print_combination(d,i,r,c,w);
+   for (w=0; w < 5; w++)
+      for (r=0; r < 5; r++)
+          for (c=0; c < 5; c++)
+              for (i=0; i < 5; i++)
+                  for (d=0; d < 5; d++)
+                     if (valid_combination(w,r,c,i,d))
+                        print_combination(w,r,c,i,d);
    
-   printf("};\n");
+   print_trailer();
    return 0;
 }
 
