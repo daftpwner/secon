@@ -56,6 +56,9 @@ const int OLED_RESET = 9;
 #define ADC_BL A3
 #define ADC_TL A7
 
+// Pinky pin
+#define PINKY 13
+
 // STG1
 const int SAMPLES = 10000;
 int seq[5] = {0};
@@ -195,6 +198,8 @@ void setup() {
     // Initialize Start/Stop switch pins
     pinMode(START_SWITCH,INPUT_PULLUP);
     pinMode(STOP_SWITCH,INPUT_PULLUP);
+    pinMode(PINKY,OUTPUT);
+    digitalWrite(PINKY,LOW);
     
     TCCR5B = (TCCR2B & 0xF8) | 0x01;
 
@@ -365,7 +370,7 @@ void draw_seq(){
   display.setTextColor(WHITE);
   display.setCursor(0,0);
   for (int i=0;i<5;i++){
-    display.write(seq[0]);
+    display.write(seq[0]+46);
   }
   display.display();
   delay(1);
@@ -778,7 +783,7 @@ void wait_for_start(){
 void start(){
   Serial.println("start");
   static long now = millis();
-  //start_pinky();
+  digitalWrite(PINKY,HIGH);
   while ((millis()-now)<5000){
     delay(1);
   }

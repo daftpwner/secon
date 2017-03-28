@@ -26,6 +26,7 @@ Servo servo3;
 // Bump Switch 
 #define BUMP_SWITCH 2
 #define E_STOP 3 // Starting push button
+#define START 4
 
 // Assign and ID to the magnetic field sensor
 Adafruit_HMC5883_Unified mag = Adafruit_HMC5883_Unified(12345);
@@ -63,6 +64,7 @@ void setup() {
   // initialize bump switch
   pinMode(BUMP_SWITCH, INPUT_PULLUP);
   pinMode(E_STOP, INPUT_PULLUP); // Emergency stop 
+  pinMode(START, INPUT_PULLUP); // start
 
   // attach emergency stop interrupt
   attachInterrupt(digitalPinToInterrupt(E_STOP),STOP, FALLING);
@@ -82,7 +84,7 @@ void loop() {
   
   // Used to control when Pinky starts via the serial monitor
   // To start pinky, simply type in "s" and send
-  while (stop_check == 0){ 
+  while (digitalRead(START) == 1){ 
 
     /*
     // Beginning course run
