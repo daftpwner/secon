@@ -242,6 +242,7 @@ void setup() {
 
     display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
     display.clearDisplay();
+    draw_seq();
 
     STG3_rotation_stepper.setSpeed(60);
     digitalWrite(A15, LOW);
@@ -366,11 +367,12 @@ void STG1(){
 }
 // Draw sequence decoded
 void draw_seq(){
+  display.clearDisplay();
   display.setTextSize(4);
   display.setTextColor(WHITE);
   display.setCursor(0,0);
   for (int i=0;i<5;i++){
-    display.write(seq[0]+46);
+    display.write(seq[i]+48);
   }
   display.display();
   delay(1);
