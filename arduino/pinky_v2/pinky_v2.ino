@@ -13,8 +13,8 @@
 #include <AFMotor.h>
 #include <Servo.h> 
 
-#define delta_field 10
-#define field_fall_time 250
+#define delta_field 13
+#define field_fall_time 300
 
 // Wheels
 Servo servo1; // Right wheel
@@ -65,7 +65,7 @@ void setup() {
   pinMode(E_STOP, INPUT_PULLUP); // Emergency stop 
 
   // attach emergency stop interrupt
-  attachInterrupt(digitalPinToInterrupt(E_STOP),STOP, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(E_STOP),STOP, FALLING);
 
   // Initialize hit stick
   servo3.write(180);
@@ -195,6 +195,7 @@ void loop() {
       }
     }
     stop_check = 1;
+    servo3.write(180);
   }
 }
 
