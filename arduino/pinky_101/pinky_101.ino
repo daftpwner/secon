@@ -81,7 +81,7 @@ void setup() {
 
 // Test the servo 
 void loop() {
-  
+  while (stop_check);
   // Used to control when Pinky starts via the serial monitor
   // To start pinky, simply type in "s" and send
   while (digitalRead(START) == 1){ 
@@ -134,11 +134,11 @@ void loop() {
     mag.getEvent(&event);
     ref_vect = sqrt(event.magnetic.x * event.magnetic.x + event.magnetic.y * event.magnetic.y +event.magnetic.z * event.magnetic.z);
 
-    
+    /*
     // Printing out reference field
     Serial.print("\tReference Field: ");
     Serial.println(ref_vect);
-    
+    */
   
     // Four more strikes possible
     while (strike_count < 4){
@@ -161,12 +161,12 @@ void loop() {
 
         strike_count = strike_count + 1;
 
-        
+        /*
         Serial.print(strike_count, DEC);
         Serial.println(" Strike Occurred");
         Serial.print("\tField Change: ");
         Serial.println(new_vect);
-        
+        */
 
         sensors_event_t event; 
         mag.getEvent(&event);
