@@ -108,7 +108,7 @@ void loop() {
   Serial.println(on_vect);
 
   servo3.write(90);
-  delay(250); // waiting time for hit
+  delay(300); // waiting time for hit
   servo3.write(130);
 
   // Waiting for intial field to turn off
@@ -160,7 +160,7 @@ void loop() {
       
       // Hit the light saber
       servo3.write(90);
-      delay(250); // waiting time for hit
+      delay(300); // waiting time for hit
       servo3.write(130);
       
       // Getting current value
@@ -230,7 +230,7 @@ void loop() {
       
       // Hit the light saber
       servo3.write(90);
-      delay(250); // waiting time for hit
+      delay(300); // waiting time for hit
       servo3.write(130);
       
       // Getting current value

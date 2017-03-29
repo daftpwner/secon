@@ -14,7 +14,7 @@
 #include <Servo.h> 
 
 // TWEAK this parameter to the field strength
-#define delta_field 5
+#define delta_field 6
 
 // Wheels
 Servo servo1; // Right wheel
@@ -119,7 +119,7 @@ void loop() {
     */
     
     // First of five strikes
-    servo3.write(80);
+    servo3.write(90);
     delay(400); // Time for hit to contact and then wait
     servo3.write(130); // come back
     delay(400);
@@ -134,11 +134,11 @@ void loop() {
     mag.getEvent(&event);
     ref_vect = sqrt(event.magnetic.x * event.magnetic.x + event.magnetic.y * event.magnetic.y +event.magnetic.z * event.magnetic.z);
 
-    /*
+    
     // Printing out reference field
     Serial.print("\tReference Field: ");
     Serial.println(ref_vect);
-    */
+    
   
     // Four more strikes possible
     while (strike_count < 4){
@@ -154,28 +154,28 @@ void loop() {
       
       // Checking magnetic vector magnitude
       if (new_vect - ref_vect > delta_field || new_vect - ref_vect < -delta_field){
-        servo3.write(80); // strike
+        servo3.write(90); // strike
         delay(400); // Time for hit to contact and then wait
         servo3.write(130); // pull back
         delay(400);
 
         strike_count = strike_count + 1;
 
-        /*
+        
         Serial.print(strike_count, DEC);
         Serial.println(" Strike Occurred");
         Serial.print("\tField Change: ");
         Serial.println(new_vect);
-        */
+        
 
         sensors_event_t event; 
         mag.getEvent(&event);
         ref_vect = sqrt(event.magnetic.x * event.magnetic.x + event.magnetic.y * event.magnetic.y +event.magnetic.z * event.magnetic.z);
 
-        /*
+        
         Serial.print("\tNew Reference: ");
         Serial.println(ref_vect);
-        */
+        
       }
     }
     stop_check = 1;
@@ -188,6 +188,7 @@ void STOP(){
 
    // Emergency Stop Pressed
    stop_check = 1;
+   servo3.write(180);
    servo2.detach();
    servo1.detach();
    servo3.detach();
