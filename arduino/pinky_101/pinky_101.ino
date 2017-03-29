@@ -15,6 +15,7 @@
 
 // TWEAK this parameter to the field strength
 #define delta_field 6
+#define arm_swing_range 85
 
 // Wheels
 Servo servo1; // Right wheel
@@ -119,7 +120,7 @@ void loop() {
     */
     
     // First of five strikes
-    servo3.write(90);
+    servo3.write(arm_swing_range);
     delay(400); // Time for hit to contact and then wait
     servo3.write(130); // come back
     delay(400);
@@ -154,7 +155,7 @@ void loop() {
       
       // Checking magnetic vector magnitude
       if (new_vect - ref_vect > delta_field || new_vect - ref_vect < -delta_field){
-        servo3.write(90); // strike
+        servo3.write(arm_swing_range); // strike
         delay(400); // Time for hit to contact and then wait
         servo3.write(130); // pull back
         delay(400);
@@ -172,10 +173,10 @@ void loop() {
         mag.getEvent(&event);
         ref_vect = sqrt(event.magnetic.x * event.magnetic.x + event.magnetic.y * event.magnetic.y +event.magnetic.z * event.magnetic.z);
 
-        
+        /*
         Serial.print("\tNew Reference: ");
         Serial.println(ref_vect);
-        
+        */
       }
     }
     stop_check = 1;
