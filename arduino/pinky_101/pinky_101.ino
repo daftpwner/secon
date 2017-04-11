@@ -71,7 +71,7 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(E_STOP),STOP, FALLING);
 
   // Initialize hit stick
-  servo3.write(180);
+  servo3.write(177);
 
   // Stop wheels
   servo2.write(90);
@@ -83,9 +83,15 @@ void setup() {
 // Test the servo 
 void loop() {
   while (stop_check);
+  while (digitalRead(START) == 1){
+    delay(100);
+    if(digitalRead(START) == 0) break;//Waiting to be plugged in
+  }
+  //while (digitalRead(START) == 0); //Wwaiting for line to go high from brain
+  
   // Used to control when Pinky starts via the serial monitor
   // To start pinky, simply type in "s" and send
-  while (digitalRead(START) == 1){ 
+  //while (digitalRead(START) == 1){ 
 
     /*
     // Beginning course run
@@ -110,7 +116,7 @@ void loop() {
 
     // check for E_STOP
     if (stop_check == 1){
-        break;
+        return;
     }
 
     /*
@@ -127,7 +133,7 @@ void loop() {
 
     // check for E_STOP
     if (stop_check == 1){
-      break;
+      return;
     }
     
     // Get reference coordinates
@@ -160,7 +166,7 @@ void loop() {
         servo3.write(130); // pull back
         delay(400);
 
-        strike_count = strike_count + 1;
+        //strike_count = strike_count + 1;
 
         /*
         Serial.print(strike_count, DEC);
@@ -180,8 +186,8 @@ void loop() {
       }
     }
     stop_check = 1;
-    servo3.write(180);
-  }
+    servo3.write(177);
+  //}
 }
 
 
@@ -189,7 +195,7 @@ void STOP(){
 
    // Emergency Stop Pressed
    stop_check = 1;
-   servo3.write(180);
+   servo3.write(177);
    servo2.detach();
    servo1.detach();
    servo3.detach();
