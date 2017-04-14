@@ -26,7 +26,7 @@
 
 
 // Pin definitions
-const int OLED_RESET = 9;
+const int OLED_RESET = 8;
 
 // Encoder pins
 #define FL_ENC_A 2
@@ -49,7 +49,8 @@ const int OLED_RESET = 9;
 #define STOP_SWITCH 32
 
 // Analog pins
-#define STG1_PWM 44
+#define STG1_DC 44
+#define INVERT_DC 53
 #define ADC_TOP A0
 #define ADC_TR A1
 #define ADC_BR A2
@@ -65,7 +66,7 @@ int seq[5] = {0};
 
 // STG4
 const int STG4_LAUNCHER = 14;
-const int STG4_FEEDER = 15;
+const int STG4_FEEDER = 9;
 
 // Hardware parameters
 // These are parameters endemic to the hardware and
@@ -86,7 +87,7 @@ int STG_trigger = 0b000;
 // Stage 1 variables
 int pad[5] = {0}; // Final copper pad assignment
 // Stage 3 Variables
-const int STEP_PER_REV = 200;
+const int STEP_PER_REV = 178;
 Stepper STG3_rotation_stepper(STEP_PER_REV, A15, A14, A13, A12); // Initialize stepper library
 int rot_seq[5] = {0};
 
@@ -204,7 +205,8 @@ void setup() {
     TCCR5B = (TCCR2B & 0xF8) | 0x01;
 
     // Initialize stage 1 pins
-    pinMode(STG1_PWM, OUTPUT);
+    pinMode(STG1_DC, OUTPUT);
+    pinMode(INVERT_DC, OUTPUT);
     pinMode(ADC_TOP, INPUT);
     pinMode(ADC_TR, INPUT);
     pinMode(ADC_BR, INPUT);
@@ -213,6 +215,7 @@ void setup() {
     
     pinMode(STG4_LAUNCHER, OUTPUT);
     pinMode(STG4_FEEDER, OUTPUT);
+    digitalWrite(STG4_FEEDER,LOW);
 
     // Start motor shield
     AFMS.begin();
@@ -368,9 +371,6 @@ void STG1(){
 // Draw sequence decoded
 void draw_seq(){
   display.clearDisplay();
-  pinMode(OLED_RESET, LOW);
-  delay(50);
-  pinMode(OLED_RESET, HIGH);
   delay(50);
   display.setTextSize(4);
   display.setTextColor(WHITE);
@@ -393,44 +393,35 @@ void retract_STG1() {
   STG1_motor->release();
 }
 // Sample analog pin
-void sample_pin(int an_pin, double* max_val, double* avg) {
-  uint16_t count = 0;
-  *avg = 0;
-  *max_val = 0;
+void sample_pin(int an_pin, double* val) {
+  *val = 0;
   analogRead(an_pin);
-  while(count++ < SAMPLES) {
-    double val = analogRead(an_pin);
-    *avg += val;
-    *max_val = (*max_val>=val) ? *max_val : val;
-  }
-  *avg = *avg/((double) SAMPLES);
+  *val = analogRead(an_pin)+analogRead(an_pin)+analogRead(an_pin)+analogRead(an_pin);
+  *val = *val/4;
 }
 // Sample and determine sequence
 void perform_STG1() {
-  // Start PWM
+  // Start
   // allocate variables
-  double max_val[5] = {0};
-  double avg[5] = {0};
+  double invert_state[5] = {0};
+  double steady_state[5] = {0};
+  digitalWrite(INVERT_DC, LOW);
   // Sample pads
-  analogWrite(STG1_PWM,127);
-  sample_pin(ADC_TOP, &max_val[0], &avg[0]);
-  analogWrite(STG1_PWM,0);
-  delay(100);
-  analogWrite(STG1_PWM,127);
-  sample_pin(ADC_TR, &max_val[1], &avg[1]);
-  analogWrite(STG1_PWM,0);
-  delay(100);
-  analogWrite(STG1_PWM,127);
-  sample_pin(ADC_BR, &max_val[2], &avg[2]);
-  analogWrite(STG1_PWM,0);
-  delay(100);
-  analogWrite(STG1_PWM,127);
-  sample_pin(ADC_BL, &max_val[3], &avg[3]);
-  analogWrite(STG1_PWM,0);
-  delay(100);
-  analogWrite(STG1_PWM,127);
-  sample_pin(ADC_TL, &max_val[4], &avg[4]);
-  analogWrite(STG1_PWM,0);
+  digitalWrite(STG1_DC,HIGH);
+  delay(500);
+  // delay for steady state
+  sample_pin(ADC_TOP, &steady_state[0]);
+  sample_pin(ADC_TR, &steady_state[1]);
+  sample_pin(ADC_BR, &steady_state[2]);
+  sample_pin(ADC_BL, &steady_state[3]);
+  sample_pin(ADC_TL, &steady_state[4]);
+  digitalWrite(STG1_DC,LOW);
+
+  // RB diode check
+  int ind_1 = -1;
+  int ind_2 = -1;
+  int rb_check = 0;
+  int rb_exists = 0;
 
   // Evaluate
   int wire = -1;
@@ -438,57 +429,104 @@ void perform_STG1() {
   int cap = -1;
   int ind = -1;
   int diode = -1;
-
-  // Find wire
+  
+  // Find Wire; lowest voltage
   for(int i = 0;i<5;i++){
-    if ((avg[i]<10)&&(max_val[i]<10)){ // 10, 10
+    if ((steady_state[i] <= 75)){
       wire = i;
       seq[i] = 1;
-      break;
     }
   }
-  // Find cap
-  for(int i=0;i<5;i++){
-    if ((avg[i]<30)&&(avg[i]>10) && (max_val[i]<75)){ // 30, 10, 75
-      cap = i;
-      seq[i] = 3;
-      break;
+
+  // determine if diode is reverse biased
+  for(int i = 0;i<5;i++){
+    if ((steady_state[i] >= 925) && (rb_check == 0)){
+      ind_1 = i;
+      rb_check = 1;
+    }else if ((steady_state[i] >= 925) && (rb_check == 1)){
+      ind_2 = i;
+      rb_exists = 1;
     }
   }
-  // Find FB-diode
-  for(int i=0;i<5;i++){
-    if ((avg[i]>50)&&(avg[i]<70)&&(max_val[i]<150)&&(max_val[i]>75)){ // 50,70,150,75
-      diode = i;
-      seq[i] = 5;
-      break;
+
+  // diode is reverse biased
+  if (rb_exists == 1){
+    // find the resistor
+    for (int i = 0;i<5;i++){
+      if ((steady_state[i] >= 800) && (i != ind_1) && (i != ind_2)){
+        res = i;
+        seq[i] = 2;
+      }
+    }
+    // find the inductor
+    for (int i = 0;i<5;i++){
+      if ((steady_state[i]>=225)&&(steady_state[i]<=500)&&(i != res) && (i != ind_1) && (i != ind_2) && (i != wire)){
+        ind = i;
+        seq[i] = 4;
+      }
+    }
+    // do something to differentiate capacitor and rb diode; ind_1 and ind_2
+    digitalWrite(STG1_DC, LOW);
+    digitalWrite(INVERT_DC, HIGH);
+    delay(500);
+    sample_pin(ADC_TOP, &invert_state[0]);
+    sample_pin(ADC_TR, &invert_state[1]);
+    sample_pin(ADC_BR, &invert_state[2]);
+    sample_pin(ADC_BL, &invert_state[3]);
+    sample_pin(ADC_TL, &invert_state[4]);
+    digitalWrite(INVERT_DC, LOW);
+    
+
+    // capacitor has lower voltage
+    if (invert_state[ind_1] < invert_state[ind_2]){
+      cap = ind_1;
+      seq[ind_1] = 3;
+      diode = ind_2;
+      seq[ind_2] = 5;
+    }
+    else{
+      cap = ind_2;
+      seq[ind_2] = 3;
+      diode = ind_1;
+      seq[ind_1] = 5;
     }
   }
-  // Find Resistor
-  for(int i=0;i<5;i++){
-    if ((avg[i]>65)&&(avg[i]<80)&&(max_val[i]<250)&&(max_val[i]>190)){//65,80,250,190
-      res = i;
-      seq[i] = 2;
-      break;
+
+
+  // diode is forward biased
+  else{
+
+    // capacitor was ind_1
+    cap = ind_1;
+    seq[cap] = 3;
+    
+    // find the resistor; highest voltage besides capacitor
+    for (int i = 0;i<5;i++){
+      if ((steady_state[i] >= 750) && (i != cap) && (i != wire)){
+        res = i;
+        seq[i] = 2;
+      }
     }
-  }
-  // Find Inductor
-  for(int i=0;i<5;i++){
-    if ((avg[i]>70)&&(avg[i]<80)&&(max_val[i]>250)){//70,80,250
-      ind = i;
-      seq[i] = 4;
-      break;
+    // find the fb_diode, lowest voltage besides wire
+    for (int i = 0;i<5;i++){
+      if ((steady_state[i] <= 325) && (i != wire) && (i != cap) && (i != res)){
+        diode = i;
+        seq[i] = 5;
+      }
     }
+
+    // find the inductor, process of elimination
+    for (int i = 0;i<5;i++){
+      if ((steady_state[i]>=225)&&(steady_state[i]<=500)&&(i != diode) && (i != wire) && (i != cap) && (i != res)){
+        ind = i;
+        seq[i] = 4;
+      }
+    }  
   }
-  // Find RB-diode
-  for( int i=0;i<5;i++){
-    if (seq[i] <= 0){
-      diode = i;
-      seq[i] = 5;
-    }
-  }
+
   //*
-  Serial.print(avg[0]); Serial.print(","); Serial.print(avg[1]); Serial.print(","); Serial.print(avg[2]); Serial.print(","); Serial.print(avg[3]); Serial.print(","); Serial.print(avg[4]); Serial.print(",");
-  Serial.print(max_val[0]); Serial.print(","); Serial.print(max_val[1]); Serial.print(","); Serial.print(max_val[2]); Serial.print(","); Serial.print(max_val[3]); Serial.print(","); Serial.println(max_val[4]);
+  Serial.print(steady_state[0]); Serial.print(","); Serial.print(steady_state[1]); Serial.print(","); Serial.print(steady_state[2]); Serial.print(","); Serial.print(steady_state[3]); Serial.print(","); Serial.print(steady_state[4]); Serial.print(",");
+  Serial.print(invert_state[0]); Serial.print(","); Serial.print(invert_state[1]); Serial.print(","); Serial.print(invert_state[2]); Serial.print(","); Serial.print(invert_state[3]); Serial.print(","); Serial.println(invert_state[4]);
   Serial.print("Sequence found: ");
   for(int i=0;i<5;i++){
     Serial.print(seq[i]);
@@ -545,19 +583,15 @@ void perform_STG3(){
  *************/
 // Stage 4
 void STG4() {
-    spinup_STG4();
-    delay(250);
     fire_STG4();
-    spindown_STG4();
     stg4_fin = 1;
-    STG_trigger = 0;
 }
 void spinup_STG4() {
     digitalWrite(STG4_LAUNCHER, HIGH);
 }
 void fire_STG4() {
     digitalWrite(STG4_FEEDER, HIGH);
-    delay(500);
+    delay(11000);
     digitalWrite(STG4_FEEDER, LOW);
 }
 void spindown_STG4() {
@@ -858,7 +892,9 @@ void align_to_STG1(){
   }
 }
 void start_STG1(){
+  static int step_inc = 0;
   deploy_STG1();
+  STG1_motor->step(step_inc,BACKWARD, MICROSTEP);
   Serial.println("start_STG1");
   STG1();
   // Check for good read
@@ -871,7 +907,11 @@ void start_STG1(){
       // retract STG1 Bump Switch
       STG3_motor->step(STG1_SWITCH_STEPS,FORWARD,MICROSTEP);
       STG3_motor->release();
+      
+      STG1_motor->step(step_inc,FORWARD, MICROSTEP);
       retract_STG1();
+      step_inc++;
+      step_inc++;
       return;
     }
     // duplicate check
@@ -881,7 +921,11 @@ void start_STG1(){
         // retract STG1 Bump Switch
         STG3_motor->step(STG1_SWITCH_STEPS,FORWARD,MICROSTEP);
         STG3_motor->release();
+        
+        STG1_motor->step(step_inc,FORWARD, MICROSTEP);
         retract_STG1();
+        step_inc++;
+        step_inc++;
         return;
       }
     }
@@ -900,7 +944,11 @@ void start_STG1(){
     // retract STG1 Bump Switch
     STG3_motor->step(STG1_SWITCH_STEPS,FORWARD,MICROSTEP);
     STG3_motor->release();
+    
+    STG1_motor->step(step_inc,FORWARD, MICROSTEP);
     retract_STG1();
+    step_inc++;
+    step_inc++;
     return;
   }
   // Check for consistency
@@ -912,6 +960,11 @@ void start_STG1(){
       STG3_motor->step(STG1_SWITCH_STEPS,FORWARD,MICROSTEP);
       STG3_motor->release();
       retract_STG1();
+      
+      STG1_motor->step(step_inc,FORWARD, MICROSTEP);
+      retract_STG1();
+      step_inc++;
+      step_inc++;
       return;
     }
   }
@@ -921,6 +974,7 @@ void start_STG1(){
   // retract STG1 Bump Switch
   STG3_motor->step(STG1_SWITCH_STEPS,FORWARD,MICROSTEP);
   STG3_motor->release();
+  STG1_motor->step(step_inc,BACKWARD, MICROSTEP);
   retract_STG1();
 }
 void realign_to_STG1(){
