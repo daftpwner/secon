@@ -1,0 +1,10 @@
+{
+  header: auto,
+
+  wheel_vels: {1000, 1000, 1000, 1000},
+
+  stg1: 0,
+  stg3: 0
+}
+# rostopic pub /brain_cmd secon2017_ros/BrainCommand '{header: auto, wheel_vels: [ 50, 0, 0, 0 ], stg1: 0, stg3: 0 }'
+
